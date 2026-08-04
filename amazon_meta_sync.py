@@ -71,6 +71,7 @@ META_FIELDS = [
     "mpn",
     "google_product_category",
     "fb_product_category",
+    "internal_label",
     "custom_label_0",
     "custom_label_1",
     "custom_label_2",
@@ -720,7 +721,28 @@ def extra_images(item: dict[str, Any]) -> str:
     return ",".join(urls[:20])
 
 
-def meta_row(item: dict[str, Any], stable_labels: list[str]) -> dict[str, str]:
+def format_internal_labels(readable_titles: list[str]) -> str:
+    """Format all Idea List names for Meta's multi-value internal_label field."""
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for value in readable_titles:
+        label = normalize_text(value)[:110]
+        if not label or label.lower() in {"see all", "view all", "show more", "load more"}:
+            continue
+        key = label.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(label)
+    escaped = [label.replace("\\", "\\\\").replace("'", "\\'") for label in cleaned]
+    return "[" + ",".join(f"'{label}'" for label in escaped) + "]"
+
+
+def meta_row(
+    item: dict[str, Any],
+    stable_labels: list[str],
+    readable_titles: list[str],
+) -> dict[str, str]:
     asin = normalize_text(item.get("asin")).upper()
     title = display_value(nested(item, "itemInfo", "title", default={})) or asin
     price, availability = parse_offer(item)
@@ -748,6 +770,7 @@ def meta_row(item: dict[str, Any], stable_labels: list[str]) -> dict[str, str]:
         "mpn": asin,
         "google_product_category": "",
         "fb_product_category": "",
+        "internal_label": format_internal_labels(readable_titles),
         "custom_label_0": labels[0],
         "custom_label_1": labels[1],
         "custom_label_2": labels[2],
@@ -913,21 +936,26 @@ def main() -> int:
         key=lambda record: normalize_text(record.get("current_title")).lower(),
     ):
         key = record["stable_meta_label"]
+        readable_name = record.get("current_title") or record.get("fallback_name") or record["list_id"]
         set_guide.append(
             {
-                "meta_product_set_name": record.get("current_title") or record.get("fallback_name") or record["list_id"],
-                "stable_meta_label": key,
-                "rule_1": f"custom_label_0 equals {key}",
-                "rule_2": f"OR custom_label_1 equals {key}",
-                "rule_3": f"OR custom_label_2 equals {key}",
-                "rule_4": f"OR custom_label_3 equals {key}",
-                "rule_5": f"OR custom_label_4 equals {key}",
+                "meta_product_set_name": readable_name,
+                "recommended_attribute": "Internal label",
+                "recommended_value": readable_name,
+                "recommended_rule": f"Internal label is any of these: {readable_name}",
+                "stable_meta_label_backup": key,
             }
         )
     write_csv(
         REPORTS / "meta_product_set_guide.csv",
         set_guide,
-        ["meta_product_set_name", "stable_meta_label", "rule_1", "rule_2", "rule_3", "rule_4", "rule_5"],
+        [
+            "meta_product_set_name",
+            "recommended_attribute",
+            "recommended_value",
+            "recommended_rule",
+            "stable_meta_label_backup",
+        ],
     )
 
     if not memberships_titles:
@@ -975,7 +1003,11 @@ def main() -> int:
         time.sleep(1.1)
 
     rows = [
-        meta_row(item, sorted(memberships_keys.get(asin, set())))
+        meta_row(
+            item,
+            sorted(memberships_keys.get(asin, set())),
+            sorted(memberships_titles.get(asin, set())),
+        )
         for asin, item in items_by_asin.items()
     ]
     rows.sort(key=lambda row: row["id"])
@@ -998,7 +1030,7 @@ def main() -> int:
                 "idea_list_titles": "|".join(titles),
                 "stable_meta_labels": "|".join(keys),
                 "idea_list_count": len(titles),
-                "warning": "More than 5 memberships; Meta receives only the first 5 stable labels." if len(keys) > 5 else "",
+                "warning": "" if len(keys) <= 5 else "All memberships are included in internal_label; only the first 5 stable backup labels appear in custom_label_0-4.",
             }
         )
     write_csv(
@@ -1060,6 +1092,7 @@ def main() -> int:
         f"Products returned by Amazon API: {len(rows)}",
         f"Meta-ready products: {len(ready)}",
         f"Products needing review: {len(review)}",
+        "Product-set method: Internal label (all Idea List memberships, not limited to five)",
         "",
         f"PUBLIC FEED: {PUBLIC / 'meta_catalog.csv'}",
         f"REGISTRY FILE: {CONFIG / 'idea_list_registry.csv'}",
