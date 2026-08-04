@@ -1,11 +1,16 @@
 HILLARY STYLE META CATALOG RUN REPORT
-2026-08-04 09:59:22
- 
+2026-08-04 13:05:11
+
+Storefront/linked lists discovered: 183
+New unapproved lists found: 153
+Renamed lists found: 30
+Changed unapproved lists needing review: 0
 Approved lists processed: 30
-Storefront lists discovered: 0
-Unique ASINs extracted: 872
+Unique approved ASINs extracted: 872
 Products returned by Amazon API: 767
 Meta-ready products: 700
 Products needing review: 172
- 
+
 PUBLIC FEED: /Users/thehillarystyle/Documents/GitHub/Berkeleycodingmomma-hillary-meta-catalog/Berkeleycodingmomma-hillary-meta-catalog/public/meta_catalog.csv
+APPROVAL FILE: /Users/thehillarystyle/Documents/GitHub/Berkeleycodingmomma-hillary-meta-catalog/Berkeleycodingmomma-hillary-meta-catalog/config/idea_list_registry.csv
+SET GUIDE: /Users/thehillarystyle/Documents/GitHub/Berkeleycodingmomma-hillary-meta-catalog/Berkeleycodingmomma-hillary-meta-catalog/reports/meta_product_set_guide.csv

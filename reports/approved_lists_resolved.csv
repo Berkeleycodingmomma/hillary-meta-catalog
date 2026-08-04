@@ -1,31 +1,31 @@
-﻿list_id,configured_name,amazon_title,idea_list_url,displayed_count,unique_asins
-2Q5678F6BP61R,JUNE BEST SELLERS/TOP PICKS,JUNE TOP PICKS,https://www.amazon.com/shop/thehillarystyle/list/2Q5678F6BP61R,244,42
-1GS6BISWIK7UN,OVER 40 & FABULOUS,OVER 40 & Fabulous HILLARY'S Capsule WARDROBE - Effortless & Chic,https://www.amazon.com/shop/thehillarystyle/list/1GS6BISWIK7UN,244,42
-ED3VXSBXPFO5,FALL,EARLY Fall,https://www.amazon.com/shop/thehillarystyle/list/ED3VXSBXPFO5,244,42
-TOLRF8ZU3T5K,HALLOWEEN,HALLOWEEN,https://www.amazon.com/shop/thehillarystyle/list/TOLRF8ZU3T5K,244,42
-IOIVGOQN9X1X,THE FALL EDIT,The FALL EDIT,https://www.amazon.com/shop/thehillarystyle/list/IOIVGOQN9X1X,244,42
-5MN6DE6JTTK2,TRANSITIONAL FALL,TRANSITIONAL Fall Fashion,https://www.amazon.com/shop/thehillarystyle/list/5MN6DE6JTTK2,244,42
-39FHE4P3M78YV,UNDER $50 FALL,UNDER $50 FALL Capsule,https://www.amazon.com/shop/thehillarystyle/list/39FHE4P3M78YV,244,42
-1DUCBV6BSXOJF,DORM/BACK TO SCHOOL,DORM ROOM ESSENTIALS,https://www.amazon.com/shop/thehillarystyle/list/1DUCBV6BSXOJF,244,42
-20Q0HRFOLM3K2,DATE NIGHT,DATE NIGHT FASHION,https://www.amazon.com/shop/thehillarystyle/list/20Q0HRFOLM3K2,244,42
-3J2NRGA0NCDGR,WORK WEAR,WORK WEAR,https://www.amazon.com/shop/thehillarystyle/list/3J2NRGA0NCDGR,244,41
-310DHOAQUC0DH,QUIET LUXURY/OLD MONEY,QUIET LUXURY/OLD MONEY,https://www.amazon.com/shop/thehillarystyle/list/310DHOAQUC0DH,244,42
-174AROJG7VER7,AGING BACKWARDS AT 48,BEAUTY MUST-HAVES,https://www.amazon.com/shop/thehillarystyle/list/174AROJG7VER7,244,40
-3QM5O5E9ELURW,PILATES PRINCESS,PILATES PRINCESS,https://www.amazon.com/shop/thehillarystyle/list/3QM5O5E9ELURW,244,41
-3GE7XODL0Z5A3,ACTIVEWEAR DRESSES,ATHLETIC DRESSES,https://www.amazon.com/shop/thehillarystyle/list/3GE7XODL0Z5A3,244,41
-1SLNDA7361JAR,CREATOR CONNECTIONS HOTTEST FINDS RIGHT NOW,The STYLE EDIT - HOTTEST finds RIGHT NOW!,https://www.amazon.com/shop/thehillarystyle/list/1SLNDA7361JAR,244,41
-32TSU85USSAQZ,RH STYLE,RH STYLE - Looks like a SPLURGE,https://www.amazon.com/shop/thehillarystyle/list/32TSU85USSAQZ,91,42
-15NDDXZ7X0955,RESORT WEAR FASHION,RESORT WEAR FASHION,https://www.amazon.com/shop/thehillarystyle/list/15NDDXZ7X0955,244,42
-1HHMN64HEUPU9,THE DRESS SHOPPE,THE DRESS SHOPPE - From BRUNCH to BLACK TIE,https://www.amazon.com/shop/thehillarystyle/list/1HHMN64HEUPU9,244,41
-3CETAKAWP1P7C,THE MAXI DRESS EDIT,MAXI DRESS EDIT,https://www.amazon.com/shop/thehillarystyle/list/3CETAKAWP1P7C,244,42
-20ODL7UVO85YK,ELEVATED SWIMWEAR,ELEVATED SWIMWEAR,https://www.amazon.com/shop/thehillarystyle/list/20ODL7UVO85YK,244,42
-2GR0M7LHWL1O,TRAVEL FASHION,CHIC WITHOUT THE SPLURGE TRAVEL,https://www.amazon.com/shop/thehillarystyle/list/2GR0M7LHWL1O,244,42
-27BIT6UUHQ198,LUXE JEWELRY AND ACCESSORIES,LUXE JEWELRY & ACCESSORIES,https://www.amazon.com/shop/thehillarystyle/list/27BIT6UUHQ198,244,42
-341JHBPWHDBNK,EUROPEAN SUMMER CAPSULE,EUROPEAN SUMMER,https://www.amazon.com/shop/thehillarystyle/list/341JHBPWHDBNK,244,42
-SC6UJV027JAK,TRAVEL ESSENTIALS LIST,In MY Travel Bag,https://www.amazon.com/shop/thehillarystyle/list/SC6UJV027JAK,244,42
-QR27F03IP4AQ,MATCHING SETS,CHIC 2-PIECE SETS,https://www.amazon.com/shop/thehillarystyle/list/QR27F03IP4AQ,244,42
-33RG7LWDINUWO,MOM STYLE,SPORT MOM Style,https://www.amazon.com/shop/thehillarystyle/list/33RG7LWDINUWO,244,42
-330I4A3SQ3ERE,PRIME DAY TOP 100,TOP 100+ PRIME DEALS,https://www.amazon.com/shop/thehillarystyle/list/330I4A3SQ3ERE,244,42
-2DVQFMB8O8SDC,PRIME DAY HOME,TOP 100 HOME PICKS,https://www.amazon.com/shop/thehillarystyle/list/2DVQFMB8O8SDC,244,42
-17SP6THMUJN6E,EARLY PRIME BEAUTY,TOP 50 BEAUTY,https://www.amazon.com/shop/thehillarystyle/list/17SP6THMUJN6E,244,41
-2LWBTUXIDQYKM,EARLY PRIME FASHION,TOP 100 PRIME FASHION DEALS,https://www.amazon.com/shop/thehillarystyle/list/2LWBTUXIDQYKM,244,42
+﻿list_id,stable_meta_label,current_title,idea_list_url,displayed_count,unique_asins,changed_since_previous_run
+3GE7XODL0Z5A3,IL_3GE7XODL0Z5A3,ATHLETIC DRESSES,https://www.amazon.com/shop/thehillarystyle/list/3GE7XODL0Z5A3,244,41,no
+ED3VXSBXPFO5,IL_ED3VXSBXPFO5,EARLY Fall,https://www.amazon.com/shop/thehillarystyle/list/ED3VXSBXPFO5,244,42,no
+TOLRF8ZU3T5K,IL_TOLRF8ZU3T5K,HALLOWEEN,https://www.amazon.com/shop/thehillarystyle/list/TOLRF8ZU3T5K,244,42,no
+2Q5678F6BP61R,IL_2Q5678F6BP61R,JUNE TOP PICKS,https://www.amazon.com/shop/thehillarystyle/list/2Q5678F6BP61R,244,42,no
+32TSU85USSAQZ,IL_32TSU85USSAQZ,RH STYLE - Looks like a SPLURGE,https://www.amazon.com/shop/thehillarystyle/list/32TSU85USSAQZ,91,42,no
+15NDDXZ7X0955,IL_15NDDXZ7X0955,RESORT WEAR FASHION,https://www.amazon.com/shop/thehillarystyle/list/15NDDXZ7X0955,244,42,no
+174AROJG7VER7,IL_174AROJG7VER7,BEAUTY MUST-HAVES,https://www.amazon.com/shop/thehillarystyle/list/174AROJG7VER7,244,40,no
+17SP6THMUJN6E,IL_17SP6THMUJN6E,TOP 50 BEAUTY,https://www.amazon.com/shop/thehillarystyle/list/17SP6THMUJN6E,244,41,no
+1DUCBV6BSXOJF,IL_1DUCBV6BSXOJF,DORM ROOM ESSENTIALS,https://www.amazon.com/shop/thehillarystyle/list/1DUCBV6BSXOJF,244,42,no
+1GS6BISWIK7UN,IL_1GS6BISWIK7UN,OVER 40 & Fabulous HILLARY'S Capsule WARDROBE - Effortless & Chic,https://www.amazon.com/shop/thehillarystyle/list/1GS6BISWIK7UN,244,42,no
+1HHMN64HEUPU9,IL_1HHMN64HEUPU9,THE DRESS SHOPPE - From BRUNCH to BLACK TIE,https://www.amazon.com/shop/thehillarystyle/list/1HHMN64HEUPU9,244,41,no
+1SLNDA7361JAR,IL_1SLNDA7361JAR,The STYLE EDIT - HOTTEST finds RIGHT NOW!,https://www.amazon.com/shop/thehillarystyle/list/1SLNDA7361JAR,244,41,no
+20ODL7UVO85YK,IL_20ODL7UVO85YK,ELEVATED SWIMWEAR,https://www.amazon.com/shop/thehillarystyle/list/20ODL7UVO85YK,244,42,no
+20Q0HRFOLM3K2,IL_20Q0HRFOLM3K2,DATE NIGHT FASHION,https://www.amazon.com/shop/thehillarystyle/list/20Q0HRFOLM3K2,244,42,no
+27BIT6UUHQ198,IL_27BIT6UUHQ198,LUXE JEWELRY & ACCESSORIES,https://www.amazon.com/shop/thehillarystyle/list/27BIT6UUHQ198,244,42,no
+2DVQFMB8O8SDC,IL_2DVQFMB8O8SDC,TOP 100 HOME PICKS,https://www.amazon.com/shop/thehillarystyle/list/2DVQFMB8O8SDC,244,42,no
+2GR0M7LHWL1O,IL_2GR0M7LHWL1O,CHIC WITHOUT THE SPLURGE TRAVEL,https://www.amazon.com/shop/thehillarystyle/list/2GR0M7LHWL1O,244,42,no
+2LWBTUXIDQYKM,IL_2LWBTUXIDQYKM,TOP 100 PRIME FASHION DEALS,https://www.amazon.com/shop/thehillarystyle/list/2LWBTUXIDQYKM,244,42,no
+310DHOAQUC0DH,IL_310DHOAQUC0DH,QUIET LUXURY/OLD MONEY,https://www.amazon.com/shop/thehillarystyle/list/310DHOAQUC0DH,244,42,no
+33RG7LWDINUWO,IL_33RG7LWDINUWO,SPORT MOM Style,https://www.amazon.com/shop/thehillarystyle/list/33RG7LWDINUWO,244,42,no
+341JHBPWHDBNK,IL_341JHBPWHDBNK,EUROPEAN SUMMER,https://www.amazon.com/shop/thehillarystyle/list/341JHBPWHDBNK,244,42,no
+39FHE4P3M78YV,IL_39FHE4P3M78YV,UNDER $50 FALL Capsule,https://www.amazon.com/shop/thehillarystyle/list/39FHE4P3M78YV,244,42,no
+3CETAKAWP1P7C,IL_3CETAKAWP1P7C,MAXI DRESS EDIT,https://www.amazon.com/shop/thehillarystyle/list/3CETAKAWP1P7C,244,42,no
+3J2NRGA0NCDGR,IL_3J2NRGA0NCDGR,WORK WEAR,https://www.amazon.com/shop/thehillarystyle/list/3J2NRGA0NCDGR,244,41,no
+3QM5O5E9ELURW,IL_3QM5O5E9ELURW,PILATES PRINCESS,https://www.amazon.com/shop/thehillarystyle/list/3QM5O5E9ELURW,244,41,no
+5MN6DE6JTTK2,IL_5MN6DE6JTTK2,TRANSITIONAL Fall Fashion,https://www.amazon.com/shop/thehillarystyle/list/5MN6DE6JTTK2,244,42,no
+IOIVGOQN9X1X,IL_IOIVGOQN9X1X,The FALL EDIT,https://www.amazon.com/shop/thehillarystyle/list/IOIVGOQN9X1X,244,42,no
+QR27F03IP4AQ,IL_QR27F03IP4AQ,CHIC 2-PIECE SETS,https://www.amazon.com/shop/thehillarystyle/list/QR27F03IP4AQ,244,42,no
+SC6UJV027JAK,IL_SC6UJV027JAK,In MY Travel Bag,https://www.amazon.com/shop/thehillarystyle/list/SC6UJV027JAK,244,42,no
+330I4A3SQ3ERE,IL_330I4A3SQ3ERE,TOP 100+ PRIME DEALS,https://www.amazon.com/shop/thehillarystyle/list/330I4A3SQ3ERE,244,42,no

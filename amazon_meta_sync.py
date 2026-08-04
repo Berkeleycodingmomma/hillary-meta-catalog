@@ -179,7 +179,7 @@ def load_registry(approved: list[dict[str, str]]) -> dict[str, dict[str, str]]:
         normalized = {field: normalize_text(row.get(field)) for field in REGISTRY_FIELDS}
         normalized["list_id"] = list_id
         normalized["stable_meta_label"] = normalized["stable_meta_label"] or stable_meta_label(list_id)
-        normalized["include_in_meta"] = normalized["include_in_meta"] or "no"
+        normalized["include_in_meta"] = "yes"  # Every discovered Idea List is automatically included
         registry[list_id] = normalized
 
     # Seed/migrate every currently approved list into the registry.
@@ -504,26 +504,27 @@ def update_registry_from_discovery(
                 "current_title": title,
                 "fallback_name": title,
                 "idea_list_url": url,
-                "include_in_meta": "no",
+                "include_in_meta": "yes",
                 "first_seen": stamp,
                 "last_seen": stamp,
                 "last_changed": "",
                 "last_product_count": "",
                 "product_hash": "",
-                "status": "new_unapproved",
+                "status": "new_auto_added",
             }
             new_rows.append(
                 {
                     "list_id": list_id,
                     "current_title": title,
                     "idea_list_url": url,
-                    "include_in_meta": "no",
-                    "action": "Change include_in_meta to yes in config/idea_list_registry.csv to approve.",
+                    "include_in_meta": "yes",
+                    "action": "Automatically included in the Meta catalog.",
                 }
             )
             continue
 
         record = registry[list_id]
+        record["include_in_meta"] = "yes"
         old_title = normalize_text(record.get("current_title"))
         record["last_seen"] = stamp
         record["idea_list_url"] = url
@@ -784,10 +785,10 @@ def main() -> int:
             all_discovered = discover_all_lists(context, settings, approved)
             new_lists, renamed_lists = update_registry_from_discovery(registry, all_discovered)
 
-        approved_records = [record for record in registry.values() if normalize_text(record.get("include_in_meta")).lower() in TRUTHY]
+        approved_records = [record for record in registry.values() if record.get("idea_list_url")]
         approved_records.sort(key=lambda record: (normalize_text(record.get("current_title")).lower(), record["list_id"]))
 
-        print(f"\nApproved/current lists to publish: {len(approved_records)}")
+        print(f"\nAll discovered Idea Lists to publish: {len(approved_records)}")
         for record in approved_records:
             entry = registry_entry(record)
             try:
@@ -822,51 +823,8 @@ def main() -> int:
             except Exception as exc:
                 print(f"Skipped {entry['current_title']}: {exc}")
 
-        if settings.get("scan_unapproved_lists_for_changes", True):
-            approved_ids = {record["list_id"] for record in approved_records}
-            unapproved_records = [
-                record
-                for record in registry.values()
-                if record["list_id"] not in approved_ids and record.get("idea_list_url")
-            ]
-            limit = int(settings.get("max_unapproved_lists_per_run", 200))
-            unapproved_records = sorted(unapproved_records, key=lambda record: (record.get("last_seen", ""), record["list_id"]), reverse=True)[:limit]
-            if unapproved_records:
-                print(f"\nChecking {len(unapproved_records)} unapproved lists for changes...")
-            for index, record in enumerate(unapproved_records, start=1):
-                entry = registry_entry(record)
-                try:
-                    title, asins, _ = scrape_list(context, entry, quiet=True)
-                except Exception as exc:
-                    print(f"  Unapproved scan skipped {entry['current_title']}: {exc}")
-                    continue
-                hash_value = product_hash(asins)
-                old_hash = record.get("product_hash", "")
-                old_count = record.get("last_product_count", "")
-                stamp = now_iso()
-                record["current_title"] = title
-                record["last_seen"] = stamp
-                record["last_product_count"] = str(len(asins))
-                record["product_hash"] = hash_value
-                if old_hash and old_hash != hash_value:
-                    record["last_changed"] = stamp
-                    record["status"] = "changed_unapproved"
-                    changed_unapproved.append(
-                        {
-                            "list_id": record["list_id"],
-                            "current_title": title,
-                            "stable_meta_label": record["stable_meta_label"],
-                            "previous_product_count": old_count,
-                            "current_product_count": len(asins),
-                            "idea_list_url": record["idea_list_url"],
-                            "include_in_meta": "no",
-                            "action": "Change include_in_meta to yes in config/idea_list_registry.csv to approve.",
-                        }
-                    )
-                elif not old_hash:
-                    record["status"] = record.get("status") or "unapproved_snapshot_created"
-                if index % 10 == 0:
-                    print(f"  Checked {index}/{len(unapproved_records)} unapproved lists")
+
+        # Every discovered list is active, so there is no separate approval scan.
 
         browser.close()
 
@@ -1053,17 +1011,17 @@ def main() -> int:
         time.strftime("%Y-%m-%d %H:%M:%S"),
         "",
         f"Storefront/linked lists discovered: {len(all_discovered)}",
-        f"New unapproved lists found: {len(new_lists)}",
+        f"New Idea Lists automatically added: {len(new_lists)}",
         f"Renamed lists found: {len(renamed_lists)}",
-        f"Changed unapproved lists needing review: {len(changed_unapproved)}",
-        f"Approved lists processed: {len(resolved)}",
-        f"Unique approved ASINs extracted: {len(asins)}",
+        f"Lists changed since previous run: {sum(1 for item in resolved if item.get('changed_since_previous_run') == 'yes')}",
+        f"Idea Lists processed: {len(resolved)}",
+        f"Unique ASINs extracted from all lists: {len(asins)}",
         f"Products returned by Amazon API: {len(rows)}",
         f"Meta-ready products: {len(ready)}",
         f"Products needing review: {len(review)}",
         "",
         f"PUBLIC FEED: {PUBLIC / 'meta_catalog.csv'}",
-        f"APPROVAL FILE: {CONFIG / 'idea_list_registry.csv'}",
+        f"REGISTRY FILE: {CONFIG / 'idea_list_registry.csv'}",
         f"SET GUIDE: {REPORTS / 'meta_product_set_guide.csv'}",
     ]
     (REPORTS / "latest_run_report.txt").write_text("\n".join(report), encoding="utf-8")
@@ -1071,10 +1029,10 @@ def main() -> int:
     print("\nDONE")
     for line in report[3:]:
         print(line)
-    if new_lists or changed_unapproved:
-        print("\nACTION NEEDED: Review config/idea_list_registry.csv.")
-        print("Change include_in_meta from no to yes for any list you approve, then run again.")
-        maybe_open_report(settings, REPORTS / "changed_unapproved_lists.csv" if changed_unapproved else REPORTS / "new_lists_found.csv")
+    if new_lists or renamed_lists:
+        print("\nINFORMATION: The registry was updated automatically.")
+        print("New and renamed Idea Lists were included in the Meta catalog without approval.")
+        maybe_open_report(settings, REPORTS / "new_lists_found.csv" if new_lists else REPORTS / "renamed_lists.csv")
     print(publish(settings))
     return 0
 
