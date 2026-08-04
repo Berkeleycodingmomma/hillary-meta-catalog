@@ -1,257 +1,1065 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import csv,getpass,json,re,subprocess,time
-from collections import defaultdict
+
+import csv
+import getpass
+import hashlib
+import json
+import platform
+import re
+import subprocess
+import time
+from collections import defaultdict, deque
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Iterable
+from urllib.parse import urljoin
+
 import requests
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import sync_playwright
 
-ROOT=Path(__file__).resolve().parent; CONFIG=ROOT/'config'; PUBLIC=ROOT/'public'; OUTPUT=ROOT/'output'; REPORTS=ROOT/'reports'; LOGS=ROOT/'logs'
-TOKEN_URL='https://api.amazon.com/auth/o2/token'; API_URL='https://creatorsapi.amazon/catalog/v1/getItems'; MARKETPLACE='www.amazon.com'
-LIST_RE=re.compile(r'https?://(?:www\.)?amazon\.com/shop/[^/]+/list/([A-Z0-9]+)',re.I)
-RESOURCES=['images.primary.large','images.primary.medium','images.variants.large','itemInfo.title','itemInfo.byLineInfo','itemInfo.features','itemInfo.contentInfo','itemInfo.productInfo','itemInfo.externalIds','itemInfo.classifications','offersV2.listings.price','offersV2.listings.availability','offersV2.listings.condition','parentASIN']
-FIELDS=['id','title','description','availability','condition','price','link','image_link','additional_image_link','brand','gtin','mpn','google_product_category','fb_product_category','custom_label_0','custom_label_1','custom_label_2','custom_label_3','custom_label_4']
+ROOT = Path(__file__).resolve().parent
+CONFIG = ROOT / "config"
+PUBLIC = ROOT / "public"
+OUTPUT = ROOT / "output"
+REPORTS = ROOT / "reports"
+LOGS = ROOT / "logs"
 
-def load_settings(): return json.loads((CONFIG/'settings.json').read_text(encoding='utf-8'))
-def clean_url(url):
-    m=LIST_RE.search(url or '')
-    return f'https://www.amazon.com/shop/thehillarystyle/list/{m.group(1).upper()}' if m else (url or '').strip()
-def read_approved():
-    out=[]
-    with (CONFIG/'approved_lists.csv').open(newline='',encoding='utf-8-sig') as f:
-        for r in csv.DictReader(f):
-            if str(r.get('enabled','')).strip().lower() not in {'yes','true','1','on'}: continue
-            lid=str(r.get('list_id','')).strip().upper(); url=clean_url(r.get('idea_list_url',''))
-            if lid and url: out.append({'fallback_name':str(r.get('fallback_name','')).strip() or lid,'list_id':lid,'idea_list_url':url})
-    return out
+TOKEN_URL = "https://api.amazon.com/auth/o2/token"
+API_URL = "https://creatorsapi.amazon/catalog/v1/getItems"
+MARKETPLACE = "www.amazon.com"
 
-def get_title(page,fallback):
-    for sel in ['h1','[data-testid*="list-title"]','[class*="listTitle"]']:
+LIST_RE = re.compile(
+    r"https?://(?:www\.)?amazon\.com/shop/[^/]+/list/([A-Z0-9]+)",
+    re.IGNORECASE,
+)
+RELATIVE_LIST_RE = re.compile(
+    r"/shop/[^/]+/list/([A-Z0-9]+)",
+    re.IGNORECASE,
+)
+
+RESOURCES = [
+    "images.primary.large",
+    "images.primary.medium",
+    "images.variants.large",
+    "itemInfo.title",
+    "itemInfo.byLineInfo",
+    "itemInfo.features",
+    "itemInfo.contentInfo",
+    "itemInfo.productInfo",
+    "itemInfo.externalIds",
+    "itemInfo.classifications",
+    "offersV2.listings.price",
+    "offersV2.listings.availability",
+    "offersV2.listings.condition",
+    "parentASIN",
+]
+
+META_FIELDS = [
+    "id",
+    "title",
+    "description",
+    "availability",
+    "condition",
+    "price",
+    "link",
+    "image_link",
+    "additional_image_link",
+    "brand",
+    "gtin",
+    "mpn",
+    "google_product_category",
+    "fb_product_category",
+    "custom_label_0",
+    "custom_label_1",
+    "custom_label_2",
+    "custom_label_3",
+    "custom_label_4",
+]
+
+REGISTRY_FIELDS = [
+    "list_id",
+    "stable_meta_label",
+    "current_title",
+    "fallback_name",
+    "idea_list_url",
+    "include_in_meta",
+    "first_seen",
+    "last_seen",
+    "last_changed",
+    "last_product_count",
+    "product_hash",
+    "status",
+]
+
+TRUTHY = {"yes", "true", "1", "on", "y"}
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+
+
+def load_settings() -> dict[str, Any]:
+    path = CONFIG / "settings.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def normalize_text(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def clean_url(url: str, storefront_url: str) -> str:
+    text = normalize_text(url)
+    match = LIST_RE.search(text)
+    if not match:
+        relative = RELATIVE_LIST_RE.search(text)
+        if relative:
+            match_id = relative.group(1).upper()
+        else:
+            return text
+    else:
+        match_id = match.group(1).upper()
+    base_match = re.match(r"(https?://(?:www\.)?amazon\.com/shop/[^/]+)", storefront_url)
+    base = base_match.group(1) if base_match else "https://www.amazon.com/shop/thehillarystyle"
+    return f"{base}/list/{match_id}"
+
+
+def extract_list_id(url: str) -> str:
+    match = LIST_RE.search(url or "") or RELATIVE_LIST_RE.search(url or "")
+    return match.group(1).upper() if match else ""
+
+
+def stable_meta_label(list_id: str) -> str:
+    return f"IL_{list_id.upper()}"[:100]
+
+
+def read_csv(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        return [dict(row) for row in csv.DictReader(handle)]
+
+
+def write_csv(path: Path, rows: Iterable[dict[str, Any]], fields: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def read_approved(storefront_url: str) -> list[dict[str, str]]:
+    rows = []
+    for row in read_csv(CONFIG / "approved_lists.csv"):
+        if normalize_text(row.get("enabled")).lower() not in TRUTHY:
+            continue
+        list_id = normalize_text(row.get("list_id")).upper()
+        url = clean_url(row.get("idea_list_url", ""), storefront_url)
+        if not list_id:
+            list_id = extract_list_id(url)
+        if list_id and url:
+            rows.append(
+                {
+                    "list_id": list_id,
+                    "fallback_name": normalize_text(row.get("fallback_name")) or list_id,
+                    "idea_list_url": url,
+                }
+            )
+    return rows
+
+
+def load_registry(approved: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+    path = CONFIG / "idea_list_registry.csv"
+    registry: dict[str, dict[str, str]] = {}
+    for row in read_csv(path):
+        list_id = normalize_text(row.get("list_id")).upper()
+        if not list_id:
+            continue
+        normalized = {field: normalize_text(row.get(field)) for field in REGISTRY_FIELDS}
+        normalized["list_id"] = list_id
+        normalized["stable_meta_label"] = normalized["stable_meta_label"] or stable_meta_label(list_id)
+        normalized["include_in_meta"] = normalized["include_in_meta"] or "no"
+        registry[list_id] = normalized
+
+    # Seed/migrate every currently approved list into the registry.
+    stamp = now_iso()
+    for entry in approved:
+        list_id = entry["list_id"]
+        existing = registry.get(list_id, {})
+        registry[list_id] = {
+            "list_id": list_id,
+            "stable_meta_label": existing.get("stable_meta_label") or stable_meta_label(list_id),
+            "current_title": existing.get("current_title") or entry["fallback_name"],
+            "fallback_name": existing.get("fallback_name") or entry["fallback_name"],
+            "idea_list_url": existing.get("idea_list_url") or entry["idea_list_url"],
+            "include_in_meta": "yes",
+            "first_seen": existing.get("first_seen") or stamp,
+            "last_seen": existing.get("last_seen") or "",
+            "last_changed": existing.get("last_changed") or "",
+            "last_product_count": existing.get("last_product_count") or "",
+            "product_hash": existing.get("product_hash") or "",
+            "status": existing.get("status") or "approved",
+        }
+    return registry
+
+
+def save_registry(registry: dict[str, dict[str, str]]) -> None:
+    rows = [registry[key] for key in sorted(registry)]
+    write_csv(CONFIG / "idea_list_registry.csv", rows, REGISTRY_FIELDS)
+
+
+def get_title(page, fallback: str) -> str:
+    selectors = [
+        "h1",
+        '[data-testid*="list-title"]',
+        '[class*="listTitle"]',
+        '[class*="title"] h1',
+    ]
+    for selector in selectors:
         try:
-            t=(page.locator(sel).first.inner_text(timeout=1200) or '').strip()
-            if t and len(t)<180 and 'Amazon' not in t: return re.sub(r'\s+',' ',t)
-        except Exception: pass
+            text = normalize_text(page.locator(selector).first.inner_text(timeout=1200))
+            if text and len(text) < 180 and text.lower() not in {"amazon", "amazon.com"}:
+                return text
+        except Exception:
+            pass
     return fallback
 
-def expected_count(page):
-    try:
-        text=page.locator('body').inner_text(timeout=5000); m=re.findall(r'(?im)^\s*(\d{1,4})\s+Items\s*$',text)
-        return int(m[0]) if m else None
-    except Exception: return None
 
-def trim(html):
-    cuts=[]
-    for p in [r'More\s+from\s+THE\s+HILLARY\s+STYLE',r'More\s+from\s+']:
-        m=re.search(p,html or '',re.I)
-        if m: cuts.append(m.start())
-    return (html or '')[:min(cuts)] if cuts else (html or '')
-def extract_asins(html):
-    html=trim(html); found=set()
-    pats=[r'/dp/([A-Z0-9]{10})(?:[/?&#\"\']|$)',r'/gp/product/([A-Z0-9]{10})(?:[/?&#\"\']|$)',r'/product/([A-Z0-9]{10})(?:[/?&#\"\']|$)',r'data-asin=[\"\']([A-Z0-9]{10})[\"\']',r'[\"\'](?:asin|ASIN|productAsin|productASIN|productId)[\"\']\s*[:=]\s*[\"\']([A-Z0-9]{10})[\"\']']
-    for p in pats:
-        for m in re.finditer(p,html,re.I): found.add(m.group(1).upper())
+def expected_count(page) -> int | None:
+    try:
+        text = page.locator("body").inner_text(timeout=5000)
+        matches = re.findall(r"(?im)^\s*(\d{1,4})\s+Items\s*$", text)
+        return int(matches[0]) if matches else None
+    except Exception:
+        return None
+
+
+def trim_recommendations(html: str) -> str:
+    cuts = []
+    for pattern in [r"More\s+from\s+THE\s+HILLARY\s+STYLE", r"More\s+from\s+"]:
+        match = re.search(pattern, html or "", re.IGNORECASE)
+        if match:
+            cuts.append(match.start())
+    return (html or "")[: min(cuts)] if cuts else (html or "")
+
+
+def extract_asins(html: str) -> set[str]:
+    html = trim_recommendations(html)
+    found: set[str] = set()
+    patterns = [
+        r"/dp/([A-Z0-9]{10})(?:[/?&#\"']|$)",
+        r"/gp/product/([A-Z0-9]{10})(?:[/?&#\"']|$)",
+        r"/product/([A-Z0-9]{10})(?:[/?&#\"']|$)",
+        r"data-asin=[\"']([A-Z0-9]{10})[\"']",
+        r"[\"'](?:asin|ASIN|productAsin|productASIN|productId)[\"']\s*[:=]\s*[\"']([A-Z0-9]{10})[\"']",
+    ]
+    for pattern in patterns:
+        for match in re.finditer(pattern, html, re.IGNORECASE):
+            found.add(match.group(1).upper())
     return found
 
-def scrape_list(context,entry):
-    page=context.new_page()
+
+def extract_list_links_from_html(html: str, storefront_url: str) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for match in re.finditer(r"(?:https?://(?:www\.)?amazon\.com)?(/shop/[^/\"'<>]+/list/([A-Z0-9]+))", html or "", re.IGNORECASE):
+        list_id = match.group(2).upper()
+        url = clean_url(urljoin("https://www.amazon.com", match.group(1)), storefront_url)
+        found[list_id] = url
+    return found
+
+
+def collect_list_links(page, storefront_url: str) -> dict[str, dict[str, str]]:
+    found: dict[str, dict[str, str]] = {}
     try:
-        print(f"\nOpening {entry['fallback_name']}"); page.goto(entry['idea_list_url'],wait_until='domcontentloaded',timeout=120000); page.wait_for_timeout(2200)
-        title=get_title(page,entry['fallback_name']); expected=expected_count(page); print(f'Amazon title: {title}');
-        if expected: print(f'Amazon displays {expected} items.')
-        found=set(); no_new=0
-        for step in range(1,301):
-            before=len(found)
-            try: found.update(extract_asins(page.content()))
-            except Exception: pass
-            added=len(found)-before
-            if step==1 or added or step%20==0: print(f'  Step {step}: {len(found)} ASINs (+{added})')
-            if expected and len(found)>=expected: break
-            try:
-                body=page.locator('body').inner_text(timeout=1200)
-                if re.search(r'More\s+from\s+THE\s+HILLARY\s+STYLE',body,re.I): break
-            except Exception: pass
-            no_new=no_new+1 if added==0 else 0
-            try:
-                y,maxy=page.evaluate("""() => {const h=window.innerHeight||900;window.scrollBy(0,Math.max(500,Math.floor(h*.75)));const m=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight)-h;return [window.scrollY,m];}"""); page.wait_for_timeout(900); bottom=int(y)>=int(maxy)-50
-            except Exception: bottom=False
-            if (bottom and no_new>=8) or no_new>=20: break
-        print(f'Finished {title}: {len(found)} unique ASINs'); return title,found,expected
-    finally: page.close()
+        for list_id, url in extract_list_links_from_html(page.content(), storefront_url).items():
+            found[list_id] = {"list_id": list_id, "idea_list_url": url, "amazon_title": list_id}
+    except Exception:
+        pass
 
-def discover(context,url):
-    page=context.new_page(); found={}
     try:
-        print('\nScanning storefront for new Idea Lists...'); page.goto(url,wait_until='domcontentloaded',timeout=120000); page.wait_for_timeout(2000); no_new=0
-        for _ in range(200):
-            before=len(found)
+        anchors = page.locator('a[href*="/shop/"][href*="/list/"]')
+        count = min(anchors.count(), 2000)
+        for index in range(count):
+            anchor = anchors.nth(index)
+            href = anchor.get_attribute("href") or ""
+            url = clean_url(urljoin(page.url, href), storefront_url)
+            list_id = extract_list_id(url)
+            if not list_id:
+                continue
             try:
-                a=page.locator('a[href*="/shop/"][href*="/list/"]')
-                for i in range(a.count()):
-                    node=a.nth(i); href=node.get_attribute('href') or ''; m=LIST_RE.search(href)
-                    if not m: continue
-                    u=clean_url(href)
-                    try: t=(node.inner_text(timeout=500) or '').strip()
-                    except Exception: t=''
-                    found[u]=re.sub(r'\s+',' ',t) if t else m.group(1).upper()
-            except Exception: pass
-            no_new=no_new+1 if len(found)==before else 0; page.evaluate('window.scrollBy(0,Math.max(600,window.innerHeight*.8))'); page.wait_for_timeout(650)
-            if no_new>=12: break
-    finally: page.close()
-    return [{'amazon_title':t,'idea_list_url':u} for u,t in sorted(found.items())]
+                title = normalize_text(anchor.inner_text(timeout=350))
+            except Exception:
+                title = ""
+            found[list_id] = {
+                "list_id": list_id,
+                "idea_list_url": url,
+                "amazon_title": title or found.get(list_id, {}).get("amazon_title") or list_id,
+            }
+    except Exception:
+        pass
+    return found
 
-def chunks(items,n):
-    for i in range(0,len(items),n): yield items[i:i+n]
-def nested(obj,*keys,default=None):
-    cur=obj
-    for k in keys:
-        if not isinstance(cur,dict) or k not in cur: return default
-        cur=cur[k]
-    return cur
-def dvalue(obj): return obj.get('displayValue','').strip() if isinstance(obj,dict) and isinstance(obj.get('displayValue'),str) else ''
-def dvalues(obj): return [str(v).strip() for v in obj.get('displayValues',[]) if str(v).strip()] if isinstance(obj,dict) and isinstance(obj.get('displayValues'),list) else []
-def token(cid,secret):
-    r=requests.post(TOKEN_URL,headers={'Content-Type':'application/json'},json={'grant_type':'client_credentials','client_id':cid,'client_secret':secret,'scope':'creatorsapi::default'},timeout=60)
-    if not r.ok: raise RuntimeError(f'Token request failed ({r.status_code}): {r.text[:1000]}')
-    t=r.json().get('access_token')
-    if not t: raise RuntimeError('Amazon returned no access token.')
-    return t
-def get_items(tok,tag,asins):
-    r=requests.post(API_URL,headers={'Authorization':f'Bearer {tok}','Content-Type':'application/json','x-marketplace':MARKETPLACE},json={'itemIds':asins,'itemIdType':'ASIN','marketplace':MARKETPLACE,'partnerTag':tag,'resources':RESOURCES},timeout=90)
-    if r.status_code==429: raise RuntimeError('Amazon rate limit reached')
-    if not r.ok: raise RuntimeError(f'GetItems failed ({r.status_code}): {r.text[:1500]}')
-    data=r.json(); return (data.get('itemsResult') or {}).get('items') or [],data.get('errors') or []
-def parse_offer(item):
-    listings = (item.get('offersV2') or {}).get('listings') or []
 
-    if not listings:
-        return '', 'out of stock'
+def click_discovery_controls(page) -> bool:
+    clicked = False
+    patterns = [
+        re.compile(r"idea\s*lists?", re.IGNORECASE),
+        re.compile(r"see\s+all", re.IGNORECASE),
+        re.compile(r"view\s+all", re.IGNORECASE),
+        re.compile(r"show\s+more", re.IGNORECASE),
+        re.compile(r"load\s+more", re.IGNORECASE),
+        re.compile(r"more", re.IGNORECASE),
+    ]
+    for role in ("button", "link"):
+        for pattern in patterns:
+            try:
+                locator = page.get_by_role(role, name=pattern)
+                total = min(locator.count(), 10)
+                for index in range(total):
+                    node = locator.nth(index)
+                    if node.is_visible():
+                        node.click(timeout=1200)
+                        page.wait_for_timeout(900)
+                        clicked = True
+            except Exception:
+                pass
+    return clicked
 
-    listing = listings[0] or {}
-    price_data = listing.get('price') or {}
-    money = (
-        price_data.get('money')
-        or price_data.get('currentPrice')
-        or price_data
+
+def discover_all_lists(context, settings: dict[str, Any], approved: list[dict[str, str]]) -> list[dict[str, str]]:
+    storefront_url = settings["storefront_url"]
+    max_pages = int(settings.get("discovery_max_pages", 220))
+    max_scroll_steps = int(settings.get("discovery_scroll_steps", 180))
+    seed_urls = [storefront_url]
+    seed_urls.extend(entry["idea_list_url"] for entry in approved)
+
+    queue: deque[str] = deque(dict.fromkeys(seed_urls))
+    visited: set[str] = set()
+    discovered: dict[str, dict[str, str]] = {}
+    page = context.new_page()
+
+    print("\nScanning the storefront and linked Idea List pages...")
+    try:
+        while queue and len(visited) < max_pages:
+            url = queue.popleft()
+            if url in visited:
+                continue
+            visited.add(url)
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=90000)
+                page.wait_for_timeout(1300)
+            except Exception as exc:
+                print(f"  Discovery skipped {url}: {exc}")
+                continue
+
+            click_discovery_controls(page)
+            no_new = 0
+            for _ in range(max_scroll_steps):
+                before = len(discovered)
+                for list_id, entry in collect_list_links(page, storefront_url).items():
+                    if list_id not in discovered or discovered[list_id].get("amazon_title") == list_id:
+                        discovered[list_id] = entry
+                    if entry["idea_list_url"] not in visited:
+                        queue.append(entry["idea_list_url"])
+                no_new = no_new + 1 if len(discovered) == before else 0
+                try:
+                    y, max_y = page.evaluate(
+                        """() => {
+                            const h = window.innerHeight || 900;
+                            window.scrollBy(0, Math.max(600, Math.floor(h * 0.85)));
+                            const maxY = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - h;
+                            return [window.scrollY, maxY];
+                        }"""
+                    )
+                    page.wait_for_timeout(500)
+                    bottom = int(y) >= int(max_y) - 60
+                except Exception:
+                    bottom = False
+                if no_new in {5, 10}:
+                    click_discovery_controls(page)
+                if (bottom and no_new >= 8) or no_new >= 16:
+                    break
+
+            if len(visited) % 10 == 0:
+                print(f"  Discovery pages visited: {len(visited)}; lists found: {len(discovered)}")
+    finally:
+        page.close()
+
+    # Approved seed lists must remain known even if Amazon hides them from discovery.
+    for entry in approved:
+        discovered.setdefault(
+            entry["list_id"],
+            {
+                "list_id": entry["list_id"],
+                "idea_list_url": entry["idea_list_url"],
+                "amazon_title": entry["fallback_name"],
+            },
+        )
+    return [discovered[key] for key in sorted(discovered)]
+
+
+def scrape_list(context, entry: dict[str, str], quiet: bool = False) -> tuple[str, set[str], int | None]:
+    page = context.new_page()
+    try:
+        if not quiet:
+            print(f"\nOpening {entry.get('current_title') or entry.get('fallback_name') or entry['list_id']}")
+        page.goto(entry["idea_list_url"], wait_until="domcontentloaded", timeout=120000)
+        page.wait_for_timeout(1800)
+        fallback = entry.get("current_title") or entry.get("fallback_name") or entry["list_id"]
+        title = get_title(page, fallback)
+        expected = expected_count(page)
+        if not quiet:
+            print(f"Amazon title: {title}")
+            if expected:
+                print(f"Amazon displays {expected} items.")
+
+        found: set[str] = set()
+        no_new = 0
+        for step in range(1, 301):
+            before = len(found)
+            try:
+                found.update(extract_asins(page.content()))
+            except Exception:
+                pass
+            added = len(found) - before
+            if not quiet and (step == 1 or added or step % 20 == 0):
+                print(f"  Step {step}: {len(found)} unique ASINs (+{added})")
+            if expected and len(found) >= expected:
+                break
+            try:
+                body = page.locator("body").inner_text(timeout=1200)
+                if re.search(r"More\s+from\s+THE\s+HILLARY\s+STYLE", body, re.IGNORECASE):
+                    break
+            except Exception:
+                pass
+            no_new = no_new + 1 if added == 0 else 0
+            try:
+                y, max_y = page.evaluate(
+                    """() => {
+                        const h = window.innerHeight || 900;
+                        window.scrollBy(0, Math.max(500, Math.floor(h * 0.75)));
+                        const maxY = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - h;
+                        return [window.scrollY, maxY];
+                    }"""
+                )
+                page.wait_for_timeout(700)
+                bottom = int(y) >= int(max_y) - 50
+            except Exception:
+                bottom = False
+            if (bottom and no_new >= 8) or no_new >= 20:
+                break
+        if not quiet:
+            print(f"Finished {title}: {len(found)} unique ASINs")
+        return title, found, expected
+    finally:
+        page.close()
+
+
+def product_hash(asins: set[str]) -> str:
+    joined = "\n".join(sorted(asins)).encode("utf-8")
+    return hashlib.sha256(joined).hexdigest()
+
+
+def update_registry_from_discovery(
+    registry: dict[str, dict[str, str]],
+    discovered: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    stamp = now_iso()
+    new_rows: list[dict[str, str]] = []
+    renamed_rows: list[dict[str, str]] = []
+    for entry in discovered:
+        list_id = entry["list_id"]
+        title = normalize_text(entry.get("amazon_title")) or list_id
+        url = entry["idea_list_url"]
+        if list_id not in registry:
+            registry[list_id] = {
+                "list_id": list_id,
+                "stable_meta_label": stable_meta_label(list_id),
+                "current_title": title,
+                "fallback_name": title,
+                "idea_list_url": url,
+                "include_in_meta": "no",
+                "first_seen": stamp,
+                "last_seen": stamp,
+                "last_changed": "",
+                "last_product_count": "",
+                "product_hash": "",
+                "status": "new_unapproved",
+            }
+            new_rows.append(
+                {
+                    "list_id": list_id,
+                    "current_title": title,
+                    "idea_list_url": url,
+                    "include_in_meta": "no",
+                    "action": "Change include_in_meta to yes in config/idea_list_registry.csv to approve.",
+                }
+            )
+            continue
+
+        record = registry[list_id]
+        old_title = normalize_text(record.get("current_title"))
+        record["last_seen"] = stamp
+        record["idea_list_url"] = url
+        if title and title != list_id and old_title and old_title != title:
+            renamed_rows.append(
+                {
+                    "list_id": list_id,
+                    "old_title": old_title,
+                    "new_title": title,
+                    "stable_meta_label": record["stable_meta_label"],
+                    "include_in_meta": record["include_in_meta"],
+                }
+            )
+            record["current_title"] = title
+            record["status"] = "renamed"
+        elif title and title != list_id:
+            record["current_title"] = title
+    return new_rows, renamed_rows
+
+
+def registry_entry(record: dict[str, str]) -> dict[str, str]:
+    return {
+        "list_id": record["list_id"],
+        "fallback_name": record.get("fallback_name") or record.get("current_title") or record["list_id"],
+        "current_title": record.get("current_title") or record.get("fallback_name") or record["list_id"],
+        "idea_list_url": record["idea_list_url"],
+        "stable_meta_label": record.get("stable_meta_label") or stable_meta_label(record["list_id"]),
+    }
+
+
+def chunks(items: list[str], size: int):
+    for index in range(0, len(items), size):
+        yield items[index : index + size]
+
+
+def nested(obj: Any, *keys: str, default: Any = None) -> Any:
+    current = obj
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return default
+        current = current[key]
+    return current
+
+
+def display_value(obj: Any) -> str:
+    return obj.get("displayValue", "").strip() if isinstance(obj, dict) and isinstance(obj.get("displayValue"), str) else ""
+
+
+def display_values(obj: Any) -> list[str]:
+    if isinstance(obj, dict) and isinstance(obj.get("displayValues"), list):
+        return [normalize_text(value) for value in obj["displayValues"] if normalize_text(value)]
+    return []
+
+
+def token(client_id: str, client_secret: str) -> str:
+    response = requests.post(
+        TOKEN_URL,
+        headers={"Content-Type": "application/json"},
+        json={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "creatorsapi::default",
+        },
+        timeout=60,
     )
+    if not response.ok:
+        raise RuntimeError(f"Token request failed ({response.status_code}): {response.text[:1000]}")
+    access_token = response.json().get("access_token")
+    if not access_token:
+        raise RuntimeError("Amazon returned no access token.")
+    return access_token
 
-    amount = money.get('amount') if isinstance(money, dict) else None
-    currency = money.get('currency') if isinstance(money, dict) else None
 
+def get_items(access_token: str, partner_tag: str, asins: list[str]):
+    response = requests.post(
+        API_URL,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "x-marketplace": MARKETPLACE,
+        },
+        json={
+            "itemIds": asins,
+            "itemIdType": "ASIN",
+            "marketplace": MARKETPLACE,
+            "partnerTag": partner_tag,
+            "resources": RESOURCES,
+        },
+        timeout=90,
+    )
+    if response.status_code == 429:
+        raise RuntimeError("Amazon rate limit reached")
+    if not response.ok:
+        raise RuntimeError(f"GetItems failed ({response.status_code}): {response.text[:1500]}")
+    data = response.json()
+    return (data.get("itemsResult") or {}).get("items") or [], data.get("errors") or []
+
+
+def parse_offer(item: dict[str, Any]) -> tuple[str, str]:
+    listings = (item.get("offersV2") or {}).get("listings") or []
+    if not listings:
+        return "", "out of stock"
+    listing = listings[0] or {}
+    price_data = listing.get("price") or {}
+    money = price_data.get("money") or price_data.get("currentPrice") or price_data
+    amount = money.get("amount") if isinstance(money, dict) else None
+    currency = money.get("currency") if isinstance(money, dict) else None
     if amount is not None:
         try:
             price = f"{float(amount):.2f} {(currency or 'USD').upper()}"
         except (TypeError, ValueError):
-            price = ''
+            price = ""
     else:
-        price = ''
-
-    availability_text = json.dumps(
-        listing.get('availability') or {}
-    ).lower()
-
-    availability = (
-        'in stock'
-        if any(
-            value in availability_text
-            for value in ['in_stock', 'instock', 'available', 'now']
-        )
-        else 'out of stock'
-    )
-
+        price = ""
+    availability_text = json.dumps(listing.get("availability") or {}).lower()
+    availability = "in stock" if any(value in availability_text for value in ["in_stock", "instock", "available", "now"]) else "out of stock"
     return price, availability
 
-def brand(item):
-    b=nested(item,'itemInfo','byLineInfo',default={}) or {}
-    for k in ('brand','manufacturer','contributors'):
-        v=dvalue(b.get(k))
-        if v:return v
-    return 'Amazon'
-def description(item):
-    vals=dvalues(nested(item,'itemInfo','features',default={}))
-    if vals:return ' • '.join(vals)[:4999]
-    for v in (nested(item,'itemInfo','contentInfo',default={}) or {}).values():
-        vals=dvalues(v)
-        if vals:return ' • '.join(vals)[:4999]
-        val=dvalue(v)
-        if val:return val[:4999]
-    return dvalue(nested(item,'itemInfo','title',default={}))[:4999]
-def image(item): return nested(item,'images','primary','large','url') or nested(item,'images','primary','medium','url') or ''
-def extra_images(item):
-    out=[]
-    for v in nested(item,'images','variants',default=[]) or []:
-        u=nested(v,'large','url') or nested(v,'medium','url') or nested(v,'small','url')
-        if u and u not in out:out.append(u)
-    return ','.join(out[:20])
-def meta_row(item,labels):
-    asin=str(item.get('asin') or '').upper(); title=dvalue(nested(item,'itemInfo','title',default={})) or asin; price,avail=parse_offer(item); ext=nested(item,'itemInfo','externalIds',default={}) or {}; gtin=''
-    for k in ('upcs','eans','isbns'):
-        vals=dvalues(ext.get(k))
-        if vals:gtin=vals[0];break
-    labels=[re.sub(r'\s+',' ',x.strip())[:100] for x in labels if x.strip()][:5]+['']*5
-    return {'id':asin,'title':title[:200],'description':description(item),'availability':avail,'condition':'new','price':price,'link':item.get('detailPageURL') or f'https://www.amazon.com/dp/{asin}','image_link':image(item),'additional_image_link':extra_images(item),'brand':brand(item)[:100],'gtin':gtin,'mpn':asin,'google_product_category':'','fb_product_category':'','custom_label_0':labels[0],'custom_label_1':labels[1],'custom_label_2':labels[2],'custom_label_3':labels[3],'custom_label_4':labels[4]}
-def write_csv(path,rows,fields):
-    path.parent.mkdir(parents=True,exist_ok=True)
-    with path.open('w',newline='',encoding='utf-8-sig') as f:w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(rows)
-def publish(settings):
-    if not settings.get('auto_git_publish',False): return 'Git publishing is OFF. Test first, then turn it on.'
-    try:
-        subprocess.run(['git','-C',str(ROOT),'add','public','reports'],check=True); status=subprocess.run(['git','-C',str(ROOT),'status','--porcelain'],capture_output=True,text=True,check=True).stdout.strip()
-        if not status:return 'No GitHub changes to publish.'
-        subprocess.run(['git','-C',str(ROOT),'commit','-m',time.strftime('Update Meta catalog %Y-%m-%d %H:%M')],check=True); subprocess.run(['git','-C',str(ROOT),'push','origin',settings.get('github_branch','main')],check=True); return 'Published updated feed to GitHub.'
-    except Exception as e:return f'Git publishing failed: {e}'
 
-def main():
-    for d in (PUBLIC,OUTPUT,REPORTS,LOGS): d.mkdir(parents=True,exist_ok=True)
-    settings=load_settings(); approved=read_approved()
-    tag=input(f"Amazon Store/Partner Tag [{settings.get('partner_tag','hillarypeil-20')}]: ").strip() or settings.get('partner_tag','hillarypeil-20'); cid=input('Creators API Credential ID: ').strip(); secret=getpass.getpass('Creators API Secret (hidden): ').strip()
-    memberships=defaultdict(set); resolved=[]; discovered=[]
-    with sync_playwright() as p:
-        browser=p.chromium.launch(headless=False); context=browser.new_context(viewport={'width':1400,'height':1000},locale='en-US')
-        if settings.get('discover_storefront_lists',True):
-            discovered=discover(context,settings.get('storefront_url')); approved_urls={x['idea_list_url'] for x in approved}; new=[dict(x,status='new_not_approved') for x in discovered if x['idea_list_url'] not in approved_urls]; write_csv(REPORTS/'new_lists_found.csv',new,['amazon_title','idea_list_url','status'])
-        for entry in approved:
+def brand(item: dict[str, Any]) -> str:
+    byline = nested(item, "itemInfo", "byLineInfo", default={}) or {}
+    for key in ("brand", "manufacturer", "contributors"):
+        value = display_value(byline.get(key))
+        if value:
+            return value
+    return "Amazon"
+
+
+def description(item: dict[str, Any]) -> str:
+    values = display_values(nested(item, "itemInfo", "features", default={}))
+    if values:
+        return " • ".join(values)[:4999]
+    for value in (nested(item, "itemInfo", "contentInfo", default={}) or {}).values():
+        values = display_values(value)
+        if values:
+            return " • ".join(values)[:4999]
+        text = display_value(value)
+        if text:
+            return text[:4999]
+    return display_value(nested(item, "itemInfo", "title", default={}))[:4999]
+
+
+def image(item: dict[str, Any]) -> str:
+    return nested(item, "images", "primary", "large", "url") or nested(item, "images", "primary", "medium", "url") or ""
+
+
+def extra_images(item: dict[str, Any]) -> str:
+    urls: list[str] = []
+    for variant in nested(item, "images", "variants", default=[]) or []:
+        url = nested(variant, "large", "url") or nested(variant, "medium", "url") or nested(variant, "small", "url")
+        if url and url not in urls:
+            urls.append(url)
+    return ",".join(urls[:20])
+
+
+def meta_row(item: dict[str, Any], stable_labels: list[str]) -> dict[str, str]:
+    asin = normalize_text(item.get("asin")).upper()
+    title = display_value(nested(item, "itemInfo", "title", default={})) or asin
+    price, availability = parse_offer(item)
+    external = nested(item, "itemInfo", "externalIds", default={}) or {}
+    gtin = ""
+    for key in ("upcs", "eans", "isbns"):
+        values = display_values(external.get(key))
+        if values:
+            gtin = values[0]
+            break
+    labels = [normalize_text(value)[:100] for value in stable_labels if normalize_text(value)][:5]
+    labels.extend([""] * (5 - len(labels)))
+    return {
+        "id": asin,
+        "title": title[:200],
+        "description": description(item),
+        "availability": availability,
+        "condition": "new",
+        "price": price,
+        "link": item.get("detailPageURL") or f"https://www.amazon.com/dp/{asin}",
+        "image_link": image(item),
+        "additional_image_link": extra_images(item),
+        "brand": brand(item)[:100],
+        "gtin": gtin,
+        "mpn": asin,
+        "google_product_category": "",
+        "fb_product_category": "",
+        "custom_label_0": labels[0],
+        "custom_label_1": labels[1],
+        "custom_label_2": labels[2],
+        "custom_label_3": labels[3],
+        "custom_label_4": labels[4],
+    }
+
+
+def publish(settings: dict[str, Any]) -> str:
+    if not settings.get("auto_git_publish", False):
+        return "Git publishing is OFF. Verify the new registry and labels first, then enable it in config/settings.json."
+    paths = ["public", "reports"]
+    if settings.get("publish_registry_to_git", False):
+        paths.append("config/idea_list_registry.csv")
+    try:
+        subprocess.run(["git", "-C", str(ROOT), "add", *paths], check=True)
+        status = subprocess.run(
+            ["git", "-C", str(ROOT), "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if not status:
+            return "No GitHub changes to publish."
+        message = time.strftime("Update Meta catalog %Y-%m-%d %H:%M")
+        subprocess.run(["git", "-C", str(ROOT), "commit", "-m", message], check=True)
+        subprocess.run(["git", "-C", str(ROOT), "push", "origin", settings.get("github_branch", "main")], check=True)
+        return "Published updated feed to GitHub."
+    except Exception as exc:
+        return f"Git publishing failed: {exc}"
+
+
+def maybe_open_report(settings: dict[str, Any], path: Path) -> None:
+    if not settings.get("open_review_report_after_run", True) or not path.exists():
+        return
+    try:
+        if platform.system() == "Darwin":
+            subprocess.Popen(["open", str(path)])
+        elif platform.system() == "Windows":
+            subprocess.Popen(["cmd", "/c", "start", "", str(path)])
+    except Exception:
+        pass
+
+
+def main() -> int:
+    for directory in (CONFIG, PUBLIC, OUTPUT, REPORTS, LOGS):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    settings = load_settings()
+    storefront_url = settings["storefront_url"]
+    approved = read_approved(storefront_url)
+    registry = load_registry(approved)
+
+    partner_tag = input(f"Amazon Store/Partner Tag [{settings.get('partner_tag', 'hillarypeil-20')}]: ").strip() or settings.get("partner_tag", "hillarypeil-20")
+    client_id = input("Creators API Credential ID: ").strip()
+    client_secret = getpass.getpass("Creators API Secret (hidden): ").strip()
+    if not client_id or not client_secret:
+        print("Credential ID and secret are required.")
+        return 1
+
+    memberships_titles: dict[str, set[str]] = defaultdict(set)
+    memberships_keys: dict[str, set[str]] = defaultdict(set)
+    resolved: list[dict[str, Any]] = []
+    changed_unapproved: list[dict[str, Any]] = []
+    all_discovered: list[dict[str, str]] = []
+    new_lists: list[dict[str, str]] = []
+    renamed_lists: list[dict[str, str]] = []
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=False)
+        context = browser.new_context(viewport={"width": 1400, "height": 1000}, locale="en-US")
+
+        if settings.get("discover_storefront_lists", True):
+            all_discovered = discover_all_lists(context, settings, approved)
+            new_lists, renamed_lists = update_registry_from_discovery(registry, all_discovered)
+
+        approved_records = [record for record in registry.values() if normalize_text(record.get("include_in_meta")).lower() in TRUTHY]
+        approved_records.sort(key=lambda record: (normalize_text(record.get("current_title")).lower(), record["list_id"]))
+
+        print(f"\nApproved/current lists to publish: {len(approved_records)}")
+        for record in approved_records:
+            entry = registry_entry(record)
             try:
-                title,asins,expected=scrape_list(context,entry); resolved.append({'list_id':entry['list_id'],'configured_name':entry['fallback_name'],'amazon_title':title,'idea_list_url':entry['idea_list_url'],'displayed_count':expected or '','unique_asins':len(asins)})
-                for a in asins:memberships[a].add(title)
-            except PlaywrightTimeoutError: print(f"Timed out: {entry['fallback_name']}")
-            except Exception as e: print(f"Skipped {entry['fallback_name']}: {e}")
+                title, asins, expected = scrape_list(context, entry)
+                hash_value = product_hash(asins)
+                old_hash = record.get("product_hash", "")
+                changed = bool(old_hash and old_hash != hash_value)
+                stamp = now_iso()
+                record["current_title"] = title
+                record["last_seen"] = stamp
+                if changed or not old_hash:
+                    record["last_changed"] = stamp
+                record["last_product_count"] = str(len(asins))
+                record["product_hash"] = hash_value
+                record["status"] = "approved_active"
+                resolved.append(
+                    {
+                        "list_id": record["list_id"],
+                        "stable_meta_label": record["stable_meta_label"],
+                        "current_title": title,
+                        "idea_list_url": record["idea_list_url"],
+                        "displayed_count": expected or "",
+                        "unique_asins": len(asins),
+                        "changed_since_previous_run": "yes" if changed else "no",
+                    }
+                )
+                for asin in asins:
+                    memberships_titles[asin].add(title)
+                    memberships_keys[asin].add(record["stable_meta_label"])
+            except PlaywrightTimeoutError:
+                print(f"Timed out: {entry['current_title']}")
+            except Exception as exc:
+                print(f"Skipped {entry['current_title']}: {exc}")
+
+        if settings.get("scan_unapproved_lists_for_changes", True):
+            approved_ids = {record["list_id"] for record in approved_records}
+            unapproved_records = [
+                record
+                for record in registry.values()
+                if record["list_id"] not in approved_ids and record.get("idea_list_url")
+            ]
+            limit = int(settings.get("max_unapproved_lists_per_run", 200))
+            unapproved_records = sorted(unapproved_records, key=lambda record: (record.get("last_seen", ""), record["list_id"]), reverse=True)[:limit]
+            if unapproved_records:
+                print(f"\nChecking {len(unapproved_records)} unapproved lists for changes...")
+            for index, record in enumerate(unapproved_records, start=1):
+                entry = registry_entry(record)
+                try:
+                    title, asins, _ = scrape_list(context, entry, quiet=True)
+                except Exception as exc:
+                    print(f"  Unapproved scan skipped {entry['current_title']}: {exc}")
+                    continue
+                hash_value = product_hash(asins)
+                old_hash = record.get("product_hash", "")
+                old_count = record.get("last_product_count", "")
+                stamp = now_iso()
+                record["current_title"] = title
+                record["last_seen"] = stamp
+                record["last_product_count"] = str(len(asins))
+                record["product_hash"] = hash_value
+                if old_hash and old_hash != hash_value:
+                    record["last_changed"] = stamp
+                    record["status"] = "changed_unapproved"
+                    changed_unapproved.append(
+                        {
+                            "list_id": record["list_id"],
+                            "current_title": title,
+                            "stable_meta_label": record["stable_meta_label"],
+                            "previous_product_count": old_count,
+                            "current_product_count": len(asins),
+                            "idea_list_url": record["idea_list_url"],
+                            "include_in_meta": "no",
+                            "action": "Change include_in_meta to yes in config/idea_list_registry.csv to approve.",
+                        }
+                    )
+                elif not old_hash:
+                    record["status"] = record.get("status") or "unapproved_snapshot_created"
+                if index % 10 == 0:
+                    print(f"  Checked {index}/{len(unapproved_records)} unapproved lists")
+
         browser.close()
-    if not memberships: print('No products extracted.'); return 1
-    tok=token(cid,secret); print('\nAmazon Creators API authentication succeeded.'); asins=sorted(memberships); items_by={}; errors=[]
-    for n,batch in enumerate(chunks(asins,10),1):
-        print(f'Getting product data: batch {n}/{(len(asins)+9)//10}')
-        try:items,errs=get_items(tok,tag,batch)
-        except RuntimeError as e:
-            if 'rate limit' in str(e).lower():time.sleep(35);items,errs=get_items(tok,tag,batch)
-            else:raise
-        for item in items:
-            a=str(item.get('asin') or '').upper()
-            if a:items_by[a]=item
-        errors.extend(errs);time.sleep(1.1)
-    omitted=[a for a in asins if a not in items_by]
-    for i,a in enumerate(omitted,1):
-        print(f'Retry {i}/{len(omitted)}: {a}')
+
+    save_registry(registry)
+
+    write_csv(
+        REPORTS / "new_lists_found.csv",
+        new_lists,
+        ["list_id", "current_title", "idea_list_url", "include_in_meta", "action"],
+    )
+    write_csv(
+        REPORTS / "renamed_lists.csv",
+        renamed_lists,
+        ["list_id", "old_title", "new_title", "stable_meta_label", "include_in_meta"],
+    )
+    write_csv(
+        REPORTS / "changed_unapproved_lists.csv",
+        changed_unapproved,
+        [
+            "list_id",
+            "current_title",
+            "stable_meta_label",
+            "previous_product_count",
+            "current_product_count",
+            "idea_list_url",
+            "include_in_meta",
+            "action",
+        ],
+    )
+    write_csv(
+        REPORTS / "approved_lists_resolved.csv",
+        resolved,
+        [
+            "list_id",
+            "stable_meta_label",
+            "current_title",
+            "idea_list_url",
+            "displayed_count",
+            "unique_asins",
+            "changed_since_previous_run",
+        ],
+    )
+
+    set_guide = []
+    for record in sorted(
+        (record for record in registry.values() if normalize_text(record.get("include_in_meta")).lower() in TRUTHY),
+        key=lambda record: normalize_text(record.get("current_title")).lower(),
+    ):
+        key = record["stable_meta_label"]
+        set_guide.append(
+            {
+                "meta_product_set_name": record.get("current_title") or record.get("fallback_name") or record["list_id"],
+                "stable_meta_label": key,
+                "rule_1": f"custom_label_0 equals {key}",
+                "rule_2": f"OR custom_label_1 equals {key}",
+                "rule_3": f"OR custom_label_2 equals {key}",
+                "rule_4": f"OR custom_label_3 equals {key}",
+                "rule_5": f"OR custom_label_4 equals {key}",
+            }
+        )
+    write_csv(
+        REPORTS / "meta_product_set_guide.csv",
+        set_guide,
+        ["meta_product_set_name", "stable_meta_label", "rule_1", "rule_2", "rule_3", "rule_4", "rule_5"],
+    )
+
+    if not memberships_titles:
+        print("No approved products were extracted. Review reports and config/idea_list_registry.csv.")
+        maybe_open_report(settings, REPORTS / "new_lists_found.csv")
+        return 1
+
+    access_token = token(client_id, client_secret)
+    print("\nAmazon Creators API authentication succeeded.")
+    asins = sorted(memberships_titles)
+    items_by_asin: dict[str, dict[str, Any]] = {}
+    errors: list[Any] = []
+
+    for batch_number, batch in enumerate(chunks(asins, 10), start=1):
+        print(f"Getting product data: batch {batch_number}/{(len(asins) + 9) // 10}")
         try:
-            items,errs=get_items(tok,tag,[a]);errors.extend(errs)
-            for item in items:
-                r=str(item.get('asin') or '').upper()
-                if r:items_by[r]=item
-        except Exception as e:errors.append({'asin':a,'message':str(e)})
+            items, batch_errors = get_items(access_token, partner_tag, batch)
+        except RuntimeError as exc:
+            if "rate limit" in str(exc).lower():
+                time.sleep(35)
+                items, batch_errors = get_items(access_token, partner_tag, batch)
+            else:
+                raise
+        for item in items:
+            asin = normalize_text(item.get("asin")).upper()
+            if asin:
+                items_by_asin[asin] = item
+        errors.extend(batch_errors)
         time.sleep(1.1)
-    rows=[meta_row(item,sorted(memberships.get(a,set()))) for a,item in items_by.items()];rows.sort(key=lambda r:r['id']);ready=[r for r in rows if r['id'] and r['title'] and r['link'] and r['image_link'] and r['price']]
-    write_csv(OUTPUT/'meta_catalog_all_returned.csv',rows,FIELDS);write_csv(PUBLIC/'meta_catalog.csv',ready,FIELDS);write_csv(REPORTS/'approved_lists_resolved.csv',resolved,['list_id','configured_name','amazon_title','idea_list_url','displayed_count','unique_asins'])
-    review=[]
-    for a in asins:
-        labels=' | '.join(sorted(memberships[a]))
-        if a not in items_by:review.append({'asin':a,'amazon_url':f'https://www.amazon.com/dp/{a}?tag={tag}','idea_lists':labels,'issue':'Amazon Creators API returned no product record after retry'})
-    for r in rows:
-        labels=' | '.join(sorted(memberships[r['id']]))
-        if not r['price']:review.append({'asin':r['id'],'amazon_url':f"https://www.amazon.com/dp/{r['id']}?tag={tag}",'idea_lists':labels,'issue':'Amazon Creators API returned the product but no price'})
-        if not r['image_link']:review.append({'asin':r['id'],'amazon_url':f"https://www.amazon.com/dp/{r['id']}?tag={tag}",'idea_lists':labels,'issue':'Amazon Creators API returned the product but no main image'})
-    write_csv(OUTPUT/'products_needing_review.csv',review,['asin','amazon_url','idea_lists','issue']);(OUTPUT/'api_errors.json').write_text(json.dumps(errors,indent=2),encoding='utf-8')
-    report=['HILLARY STYLE META CATALOG RUN REPORT',time.strftime('%Y-%m-%d %H:%M:%S'),' ',f'Approved lists processed: {len(resolved)}',f'Storefront lists discovered: {len(discovered)}',f'Unique ASINs extracted: {len(asins)}',f'Products returned by Amazon API: {len(rows)}',f'Meta-ready products: {len(ready)}',f'Products needing review: {len(review)}',' ',f"PUBLIC FEED: {PUBLIC/'meta_catalog.csv'}"]
-    (REPORTS/'latest_run_report.txt').write_text('\n'.join(report),encoding='utf-8');print('\nDONE');[print(x) for x in report[3:]];print(publish(settings));return 0
-if __name__=='__main__':
-    try:raise SystemExit(main())
-    except KeyboardInterrupt:print('\nCancelled.');raise SystemExit(130)
-    except Exception as e:print(f'\nERROR: {e}');raise SystemExit(1)
+
+    omitted = [asin for asin in asins if asin not in items_by_asin]
+    for index, asin in enumerate(omitted, start=1):
+        print(f"Retry {index}/{len(omitted)}: {asin}")
+        try:
+            items, retry_errors = get_items(access_token, partner_tag, [asin])
+            errors.extend(retry_errors)
+            for item in items:
+                returned_asin = normalize_text(item.get("asin")).upper()
+                if returned_asin:
+                    items_by_asin[returned_asin] = item
+        except Exception as exc:
+            errors.append({"asin": asin, "message": str(exc)})
+        time.sleep(1.1)
+
+    rows = [
+        meta_row(item, sorted(memberships_keys.get(asin, set())))
+        for asin, item in items_by_asin.items()
+    ]
+    rows.sort(key=lambda row: row["id"])
+    ready = [
+        row
+        for row in rows
+        if row["id"] and row["title"] and row["link"] and row["image_link"] and row["price"]
+    ]
+
+    write_csv(OUTPUT / "meta_catalog_all_returned.csv", rows, META_FIELDS)
+    write_csv(PUBLIC / "meta_catalog.csv", ready, META_FIELDS)
+
+    membership_rows = []
+    for asin in sorted(memberships_titles):
+        titles = sorted(memberships_titles[asin])
+        keys = sorted(memberships_keys[asin])
+        membership_rows.append(
+            {
+                "asin": asin,
+                "idea_list_titles": "|".join(titles),
+                "stable_meta_labels": "|".join(keys),
+                "idea_list_count": len(titles),
+                "warning": "More than 5 memberships; Meta receives only the first 5 stable labels." if len(keys) > 5 else "",
+            }
+        )
+    write_csv(
+        OUTPUT / "product_memberships.csv",
+        membership_rows,
+        ["asin", "idea_list_titles", "stable_meta_labels", "idea_list_count", "warning"],
+    )
+
+    review = []
+    for asin in asins:
+        titles = " | ".join(sorted(memberships_titles[asin]))
+        if asin not in items_by_asin:
+            review.append(
+                {
+                    "asin": asin,
+                    "amazon_url": f"https://www.amazon.com/dp/{asin}?tag={partner_tag}",
+                    "idea_lists": titles,
+                    "issue": "Amazon Creators API returned no product record after retry",
+                }
+            )
+    for row in rows:
+        titles = " | ".join(sorted(memberships_titles[row["id"]]))
+        if not row["price"]:
+            review.append(
+                {
+                    "asin": row["id"],
+                    "amazon_url": f"https://www.amazon.com/dp/{row['id']}?tag={partner_tag}",
+                    "idea_lists": titles,
+                    "issue": "Amazon Creators API returned the product but no price",
+                }
+            )
+        if not row["image_link"]:
+            review.append(
+                {
+                    "asin": row["id"],
+                    "amazon_url": f"https://www.amazon.com/dp/{row['id']}?tag={partner_tag}",
+                    "idea_lists": titles,
+                    "issue": "Amazon Creators API returned the product but no main image",
+                }
+            )
+
+    write_csv(
+        OUTPUT / "products_needing_review.csv",
+        review,
+        ["asin", "amazon_url", "idea_lists", "issue"],
+    )
+    (OUTPUT / "api_errors.json").write_text(json.dumps(errors, indent=2), encoding="utf-8")
+
+    report = [
+        "HILLARY STYLE META CATALOG RUN REPORT",
+        time.strftime("%Y-%m-%d %H:%M:%S"),
+        "",
+        f"Storefront/linked lists discovered: {len(all_discovered)}",
+        f"New unapproved lists found: {len(new_lists)}",
+        f"Renamed lists found: {len(renamed_lists)}",
+        f"Changed unapproved lists needing review: {len(changed_unapproved)}",
+        f"Approved lists processed: {len(resolved)}",
+        f"Unique approved ASINs extracted: {len(asins)}",
+        f"Products returned by Amazon API: {len(rows)}",
+        f"Meta-ready products: {len(ready)}",
+        f"Products needing review: {len(review)}",
+        "",
+        f"PUBLIC FEED: {PUBLIC / 'meta_catalog.csv'}",
+        f"APPROVAL FILE: {CONFIG / 'idea_list_registry.csv'}",
+        f"SET GUIDE: {REPORTS / 'meta_product_set_guide.csv'}",
+    ]
+    (REPORTS / "latest_run_report.txt").write_text("\n".join(report), encoding="utf-8")
+
+    print("\nDONE")
+    for line in report[3:]:
+        print(line)
+    if new_lists or changed_unapproved:
+        print("\nACTION NEEDED: Review config/idea_list_registry.csv.")
+        print("Change include_in_meta from no to yes for any list you approve, then run again.")
+        maybe_open_report(settings, REPORTS / "changed_unapproved_lists.csv" if changed_unapproved else REPORTS / "new_lists_found.csv")
+    print(publish(settings))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        raise SystemExit(130)
+    except Exception as exc:
+        print(f"\nERROR: {exc}")
+        raise SystemExit(1)

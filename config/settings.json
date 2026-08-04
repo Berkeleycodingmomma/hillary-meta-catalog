@@ -2,7 +2,12 @@
   "storefront_url": "https://www.amazon.com/shop/thehillarystyle",
   "partner_tag": "hillarypeil-20",
   "discover_storefront_lists": true,
-  "auto_include_new_lists": false,
+  "discovery_max_pages": 220,
+  "discovery_scroll_steps": 180,
+  "scan_unapproved_lists_for_changes": true,
+  "max_unapproved_lists_per_run": 200,
+  "open_review_report_after_run": true,
   "auto_git_publish": false,
+  "publish_registry_to_git": false,
   "github_branch": "main"
 }
