@@ -123,11 +123,22 @@ def get_items(tok,tag,asins):
 def parse_offer(item):
     listings=(item.get('offersV2') or {}).get('listings') or []
     if not listings: return '','out of stock'
-    listing=listings[0] or {}; p=listing.get('price') or {}; money=p.get('money') or p.get('currentPrice') or p
-    amount=money.get('amount') if isinstance(money,dict) else None; currency=money.get('currency') if isinstance(money,dict) else None; display=money.get('displayAmount') if isinstance(money,dict) else None
-    price=str(display) if display else (f"{amount} {currency or 'USD'}" if amount is not None else '')
-    txt=json.dumps(listing.get('availability') or {}).lower(); avail='in stock' if any(x in txt for x in ['in_stock','instock','available','now']) else 'out of stock'
-    return price,avail
+    listing = listings[0] or {}
+p = listing.get('price') or {}
+money = p.get('money') or p.get('currentPrice') or p
+
+amount = money.get('amount') if isinstance(money, dict) else None
+currency = money.get('currency') if isinstance(money, dict) else None
+
+if amount is not None:
+    try:
+        price = f"{float(amount):.2f} {(currency or 'USD').upper()}"
+    except (TypeError, ValueError):
+        price = ''
+else:
+    price = ''
+txt=json.dumps(listing.get('availability') or {}).lower(); avail='in stock' if any(x in txt for x in ['in_stock','instock','available','now']) else 'out of stock'
+return price,avail
 def brand(item):
     b=nested(item,'itemInfo','byLineInfo',default={}) or {}
     for k in ('brand','manufacturer','contributors'):
