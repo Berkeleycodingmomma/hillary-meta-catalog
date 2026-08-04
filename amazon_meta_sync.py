@@ -301,17 +301,13 @@ def collect_list_links(page, storefront_url: str) -> dict[str, dict[str, str]]:
     return found
 
 
-def click_discovery_controls(page) -> bool:
-    clicked = False
+def open_idea_lists_view(page) -> None:
+    """Open the storefront's dedicated Idea Lists view without following other Amazon content."""
     patterns = [
+        re.compile(r"^idea\s*lists?$", re.IGNORECASE),
         re.compile(r"idea\s*lists?", re.IGNORECASE),
-        re.compile(r"see\s+all", re.IGNORECASE),
-        re.compile(r"view\s+all", re.IGNORECASE),
-        re.compile(r"show\s+more", re.IGNORECASE),
-        re.compile(r"load\s+more", re.IGNORECASE),
-        re.compile(r"more", re.IGNORECASE),
     ]
-    for role in ("button", "link"):
+    for role in ("button", "link", "tab"):
         for pattern in patterns:
             try:
                 locator = page.get_by_role(role, name=pattern)
@@ -319,7 +315,46 @@ def click_discovery_controls(page) -> bool:
                 for index in range(total):
                     node = locator.nth(index)
                     if node.is_visible():
-                        node.click(timeout=1200)
+                        node.click(timeout=2500)
+                        page.wait_for_timeout(1500)
+                        return
+            except Exception:
+                pass
+
+    # Fallback for storefront layouts where the tab is not exposed with an ARIA role.
+    try:
+        locator = page.locator(r"text=/^Idea\s*Lists?$/i")
+        total = min(locator.count(), 10)
+        for index in range(total):
+            node = locator.nth(index)
+            if node.is_visible():
+                node.click(timeout=2500)
+                page.wait_for_timeout(1500)
+                return
+    except Exception:
+        pass
+
+    raise RuntimeError("Could not find the Idea Lists tab on the storefront.")
+
+
+def click_list_view_load_more(page) -> bool:
+    """Click only controls that reveal more cards on the current Idea Lists view."""
+    clicked = False
+    patterns = [
+        re.compile(r"^see\s+all$", re.IGNORECASE),
+        re.compile(r"^view\s+all$", re.IGNORECASE),
+        re.compile(r"^show\s+more$", re.IGNORECASE),
+        re.compile(r"^load\s+more$", re.IGNORECASE),
+    ]
+    for role in ("button", "link"):
+        for pattern in patterns:
+            try:
+                locator = page.get_by_role(role, name=pattern)
+                total = min(locator.count(), 5)
+                for index in range(total):
+                    node = locator.nth(index)
+                    if node.is_visible():
+                        node.click(timeout=1500)
                         page.wait_for_timeout(900)
                         clicked = True
             except Exception:
@@ -328,65 +363,54 @@ def click_discovery_controls(page) -> bool:
 
 
 def discover_all_lists(context, settings: dict[str, Any], approved: list[dict[str, str]]) -> list[dict[str, str]]:
-    storefront_url = settings["storefront_url"]
-    max_pages = int(settings.get("discovery_max_pages", 220))
-    max_scroll_steps = int(settings.get("discovery_scroll_steps", 180))
-    seed_urls = [storefront_url]
-    seed_urls.extend(entry["idea_list_url"] for entry in approved)
+    """Discover Idea Lists only from the storefront's dedicated Idea Lists tab.
 
-    queue: deque[str] = deque(dict.fromkeys(seed_urls))
-    visited: set[str] = set()
+    This deliberately does not recursively open list pages or follow unrelated Amazon links.
+    """
+    storefront_url = settings["storefront_url"]
+    max_scroll_steps = int(settings.get("discovery_scroll_steps", 180))
     discovered: dict[str, dict[str, str]] = {}
     page = context.new_page()
 
-    print("\nScanning the storefront and linked Idea List pages...")
+    print("\nScanning the storefront Idea Lists tab only...")
     try:
-        while queue and len(visited) < max_pages:
-            url = queue.popleft()
-            if url in visited:
-                continue
-            visited.add(url)
+        page.goto(storefront_url, wait_until="domcontentloaded", timeout=90000)
+        page.wait_for_timeout(1800)
+        open_idea_lists_view(page)
+
+        no_new = 0
+        for step in range(1, max_scroll_steps + 1):
+            before = len(discovered)
+            for list_id, entry in collect_list_links(page, storefront_url).items():
+                if list_id not in discovered or discovered[list_id].get("amazon_title") == list_id:
+                    discovered[list_id] = entry
+
+            no_new = no_new + 1 if len(discovered) == before else 0
+            if step == 1 or len(discovered) != before or step % 20 == 0:
+                print(f"  Idea List discovery step {step}: {len(discovered)} lists found")
+
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=90000)
-                page.wait_for_timeout(1300)
-            except Exception as exc:
-                print(f"  Discovery skipped {url}: {exc}")
-                continue
+                y, max_y = page.evaluate(
+                    """() => {
+                        const h = window.innerHeight || 900;
+                        window.scrollBy(0, Math.max(650, Math.floor(h * 0.85)));
+                        const maxY = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - h;
+                        return [window.scrollY, maxY];
+                    }"""
+                )
+                page.wait_for_timeout(550)
+                bottom = int(y) >= int(max_y) - 60
+            except Exception:
+                bottom = False
 
-            click_discovery_controls(page)
-            no_new = 0
-            for _ in range(max_scroll_steps):
-                before = len(discovered)
-                for list_id, entry in collect_list_links(page, storefront_url).items():
-                    if list_id not in discovered or discovered[list_id].get("amazon_title") == list_id:
-                        discovered[list_id] = entry
-                    if entry["idea_list_url"] not in visited:
-                        queue.append(entry["idea_list_url"])
-                no_new = no_new + 1 if len(discovered) == before else 0
-                try:
-                    y, max_y = page.evaluate(
-                        """() => {
-                            const h = window.innerHeight || 900;
-                            window.scrollBy(0, Math.max(600, Math.floor(h * 0.85)));
-                            const maxY = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - h;
-                            return [window.scrollY, maxY];
-                        }"""
-                    )
-                    page.wait_for_timeout(500)
-                    bottom = int(y) >= int(max_y) - 60
-                except Exception:
-                    bottom = False
-                if no_new in {5, 10}:
-                    click_discovery_controls(page)
-                if (bottom and no_new >= 8) or no_new >= 16:
-                    break
-
-            if len(visited) % 10 == 0:
-                print(f"  Discovery pages visited: {len(visited)}; lists found: {len(discovered)}")
+            if no_new in {5, 10}:
+                click_list_view_load_more(page)
+            if (bottom and no_new >= 8) or no_new >= 16:
+                break
     finally:
         page.close()
 
-    # Approved seed lists must remain known even if Amazon hides them from discovery.
+    # Approved lists must remain known even if Amazon temporarily hides them from the tab.
     for entry in approved:
         discovered.setdefault(
             entry["list_id"],
@@ -396,8 +420,9 @@ def discover_all_lists(context, settings: dict[str, Any], approved: list[dict[st
                 "amazon_title": entry["fallback_name"],
             },
         )
-    return [discovered[key] for key in sorted(discovered)]
 
+    print(f"Idea List discovery complete: {len(discovered)} lists found.")
+    return [discovered[key] for key in sorted(discovered)]
 
 def scrape_list(context, entry: dict[str, str], quiet: bool = False) -> tuple[str, set[str], int | None]:
     page = context.new_page()
