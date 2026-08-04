@@ -1,0 +1,11 @@
+HILLARY STYLE META CATALOG RUN REPORT
+2026-08-03 23:19:51
+ 
+Approved lists processed: 30
+Storefront lists discovered: 0
+Unique ASINs extracted: 888
+Products returned by Amazon API: 783
+Meta-ready products: 714
+Products needing review: 174
+ 
+PUBLIC FEED: /Users/thehillarystyle/Documents/GitHub/hillary-meta-catalog/hillary-meta-catalog-v2/public/meta_catalog.csv
