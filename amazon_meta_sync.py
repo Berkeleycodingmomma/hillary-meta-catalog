@@ -121,24 +121,45 @@ def get_items(tok,tag,asins):
     if not r.ok: raise RuntimeError(f'GetItems failed ({r.status_code}): {r.text[:1500]}')
     data=r.json(); return (data.get('itemsResult') or {}).get('items') or [],data.get('errors') or []
 def parse_offer(item):
-    listings=(item.get('offersV2') or {}).get('listings') or []
-    if not listings: return '','out of stock'
+    listings = (item.get('offersV2') or {}).get('listings') or []
+
+    if not listings:
+        return '', 'out of stock'
+
     listing = listings[0] or {}
-p = listing.get('price') or {}
-money = p.get('money') or p.get('currentPrice') or p
+    price_data = listing.get('price') or {}
+    money = (
+        price_data.get('money')
+        or price_data.get('currentPrice')
+        or price_data
+    )
 
-amount = money.get('amount') if isinstance(money, dict) else None
-currency = money.get('currency') if isinstance(money, dict) else None
+    amount = money.get('amount') if isinstance(money, dict) else None
+    currency = money.get('currency') if isinstance(money, dict) else None
 
-if amount is not None:
-    try:
-        price = f"{float(amount):.2f} {(currency or 'USD').upper()}"
-    except (TypeError, ValueError):
+    if amount is not None:
+        try:
+            price = f"{float(amount):.2f} {(currency or 'USD').upper()}"
+        except (TypeError, ValueError):
+            price = ''
+    else:
         price = ''
-else:
-    price = ''
-txt=json.dumps(listing.get('availability') or {}).lower(); avail='in stock' if any(x in txt for x in ['in_stock','instock','available','now']) else 'out of stock'
-return price,avail
+
+    availability_text = json.dumps(
+        listing.get('availability') or {}
+    ).lower()
+
+    availability = (
+        'in stock'
+        if any(
+            value in availability_text
+            for value in ['in_stock', 'instock', 'available', 'now']
+        )
+        else 'out of stock'
+    )
+
+    return price, availability
+
 def brand(item):
     b=nested(item,'itemInfo','byLineInfo',default={}) or {}
     for k in ('brand','manufacturer','contributors'):
