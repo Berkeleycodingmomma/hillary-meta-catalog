@@ -1,0 +1,8 @@
+{
+  "storefront_url": "https://www.amazon.com/shop/thehillarystyle",
+  "partner_tag": "hillarypeil-20",
+  "discover_storefront_lists": true,
+  "auto_include_new_lists": false,
+  "auto_git_publish": false,
+  "github_branch": "main"
+}
