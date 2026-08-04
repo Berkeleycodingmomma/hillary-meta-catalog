@@ -614,7 +614,7 @@ def get_items(access_token: str, partner_tag: str, asins: list[str]):
             "partnerTag": partner_tag,
             "resources": RESOURCES,
         },
-        timeout=90,
+        timeout=(20, 90),
     )
     if response.status_code == 429:
         raise RuntimeError("Amazon rate limit reached")
@@ -622,6 +622,45 @@ def get_items(access_token: str, partner_tag: str, asins: list[str]):
         raise RuntimeError(f"GetItems failed ({response.status_code}): {response.text[:1500]}")
     data = response.json()
     return (data.get("itemsResult") or {}).get("items") or [], data.get("errors") or []
+
+
+def get_items_with_retry(
+    access_token: str,
+    partner_tag: str,
+    asins: list[str],
+    *,
+    max_attempts: int = 7,
+):
+    """Call GetItems without aborting the full run on a temporary network reset."""
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return get_items(access_token, partner_tag, asins)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            last_error = exc
+            wait = min(60, 4 * (2 ** (attempt - 1)))
+            print(
+                f"Temporary Amazon connection problem. "
+                f"Retrying this batch in {wait} seconds "
+                f"({attempt}/{max_attempts})..."
+            )
+            time.sleep(wait)
+        except RuntimeError as exc:
+            last_error = exc
+            message = str(exc).lower()
+            if "rate limit" in message or "failed (500)" in message or "failed (502)" in message or "failed (503)" in message or "failed (504)" in message:
+                wait = min(75, 10 * attempt)
+                print(
+                    f"Amazon API temporarily unavailable or rate limited. "
+                    f"Retrying this batch in {wait} seconds "
+                    f"({attempt}/{max_attempts})..."
+                )
+                time.sleep(wait)
+            else:
+                raise
+    raise RuntimeError(
+        f"Amazon API batch failed after {max_attempts} attempts: {last_error}"
+    )
 
 
 def parse_offer(item: dict[str, Any]) -> tuple[str, str]:
@@ -904,14 +943,11 @@ def main() -> int:
 
     for batch_number, batch in enumerate(chunks(asins, 10), start=1):
         print(f"Getting product data: batch {batch_number}/{(len(asins) + 9) // 10}")
-        try:
-            items, batch_errors = get_items(access_token, partner_tag, batch)
-        except RuntimeError as exc:
-            if "rate limit" in str(exc).lower():
-                time.sleep(35)
-                items, batch_errors = get_items(access_token, partner_tag, batch)
-            else:
-                raise
+        items, batch_errors = get_items_with_retry(
+            access_token,
+            partner_tag,
+            batch,
+        )
         for item in items:
             asin = normalize_text(item.get("asin")).upper()
             if asin:
@@ -923,7 +959,12 @@ def main() -> int:
     for index, asin in enumerate(omitted, start=1):
         print(f"Retry {index}/{len(omitted)}: {asin}")
         try:
-            items, retry_errors = get_items(access_token, partner_tag, [asin])
+            items, retry_errors = get_items_with_retry(
+                access_token,
+                partner_tag,
+                [asin],
+                max_attempts=5,
+            )
             errors.extend(retry_errors)
             for item in items:
                 returned_asin = normalize_text(item.get("asin")).upper()
