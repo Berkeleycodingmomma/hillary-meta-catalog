@@ -10,7 +10,7 @@ import re
 import subprocess
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urljoin
@@ -25,6 +25,10 @@ PUBLIC = ROOT / "public"
 OUTPUT = ROOT / "output"
 REPORTS = ROOT / "reports"
 LOGS = ROOT / "logs"
+CACHE = ROOT / "cache"
+LIST_CACHE = CACHE / "lists"
+PRODUCT_CACHE = CACHE / "products.json"
+RUN_STATE = CACHE / "run_state.json"
 
 TOKEN_URL = "https://api.amazon.com/auth/o2/token"
 API_URL = "https://creatorsapi.amazon/catalog/v1/getItems"
@@ -110,6 +114,107 @@ def normalize_text(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+
+GENERIC_TITLES = {
+    "see all", "view all", "show more", "load more", "more", "idea lists",
+    "all", "amazon", "amazon.com", "shop", "products", "items"
+}
+
+
+def is_valid_list_title(value: Any) -> bool:
+    text = normalize_text(value)
+    if not text or len(text) > 180:
+        return False
+    lowered = text.casefold()
+    if lowered in GENERIC_TITLES:
+        return False
+    if re.fullmatch(r"\d+\s*(items?|posts?)?", lowered):
+        return False
+    if lowered.startswith("see all") or lowered.startswith("view all"):
+        return False
+    return True
+
+
+def clean_list_title(value: Any) -> str:
+    text = normalize_text(value)
+    text = re.sub(r"\s+\d{1,5}\s+Items\s*$", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+\d{1,5}\s+Posts\s*$", "", text, flags=re.IGNORECASE)
+    return normalize_text(text)
+
+
+def parse_title_and_count(text: str) -> tuple[str, int | None]:
+    lines = [normalize_text(line) for line in str(text or "").splitlines() if normalize_text(line)]
+    count = None
+    for line in lines:
+        match = re.search(r"\b(\d{1,5})\s+Items\b", line, re.IGNORECASE)
+        if match:
+            count = int(match.group(1))
+            break
+    candidates = []
+    for line in lines:
+        candidate = clean_list_title(line)
+        if is_valid_list_title(candidate) and not re.search(r"\b\d{1,5}\s+Items\b", candidate, re.IGNORECASE):
+            candidates.append(candidate)
+    return (candidates[0] if candidates else "", count)
+
+
+def atomic_write_csv(path: Path, rows: Iterable[dict[str, Any]], fields: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    with temp.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+    temp.replace(path)
+
+
+def load_json(path: Path, default: Any) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
+    except Exception:
+        return default
+
+
+def save_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp.replace(path)
+
+
+def list_cache_path(list_id: str) -> Path:
+    return LIST_CACHE / f"{list_id}.json"
+
+
+def load_list_cache(list_id: str) -> dict[str, Any] | None:
+    data = load_json(list_cache_path(list_id), None)
+    return data if isinstance(data, dict) else None
+
+
+def save_list_cache(list_id: str, title: str, asins: set[str], displayed_count: int | None) -> None:
+    save_json(
+        list_cache_path(list_id),
+        {
+            "list_id": list_id,
+            "title": title,
+            "asins": sorted(asins),
+            "displayed_count": displayed_count,
+            "scraped_at": now_iso(),
+            "product_hash": product_hash(asins),
+        },
+    )
+
+
+def cache_is_fresh(cache: dict[str, Any], days: int) -> bool:
+    try:
+        scraped = datetime.fromisoformat(str(cache.get("scraped_at")))
+        if scraped.tzinfo is None:
+            scraped = scraped.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) - scraped.astimezone(timezone.utc) <= timedelta(days=days)
+    except Exception:
+        return False
+
+
 def clean_url(url: str, storefront_url: str) -> str:
     text = normalize_text(url)
     match = LIST_RE.search(text)
@@ -143,11 +248,7 @@ def read_csv(path: Path) -> list[dict[str, str]]:
 
 
 def write_csv(path: Path, rows: Iterable[dict[str, Any]], fields: list[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8-sig") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
+    atomic_write_csv(path, rows, fields)
 
 
 def read_approved(storefront_url: str) -> list[dict[str, str]]:
@@ -211,30 +312,72 @@ def save_registry(registry: dict[str, dict[str, str]]) -> None:
 
 
 def get_title(page, fallback: str) -> str:
+    """Return the real Idea List name; never replace it with UI text such as 'See all'."""
     selectors = [
-        "h1",
         '[data-testid*="list-title"]',
         '[class*="listTitle"]',
-        '[class*="title"] h1',
+        'main h1',
+        'main h2',
+        'h1',
+        'h2',
+    ]
+    candidates: list[str] = []
+    for selector in selectors:
+        try:
+            locator = page.locator(selector)
+            for index in range(min(locator.count(), 12)):
+                text = clean_list_title(locator.nth(index).inner_text(timeout=700))
+                if is_valid_list_title(text):
+                    candidates.append(text)
+        except Exception:
+            pass
+    # Browser title often contains the list name even when the visible heading is virtualized.
+    try:
+        browser_title = clean_list_title(page.title().split(":")[0].split("|")[0])
+        if is_valid_list_title(browser_title):
+            candidates.append(browser_title)
+    except Exception:
+        pass
+    fallback = clean_list_title(fallback)
+    # Prefer a candidate that resembles the known registry title. Otherwise preserve the
+    # registry title instead of trusting a generic Amazon control.
+    if is_valid_list_title(fallback):
+        for candidate in candidates:
+            if candidate.casefold() == fallback.casefold() or fallback.casefold() in candidate.casefold() or candidate.casefold() in fallback.casefold():
+                return candidate
+        return fallback
+    return candidates[0] if candidates else fallback
+
+def expected_count(page, fallback_count: int | None = None) -> int | None:
+    """Read a count only when it is attached to the current list heading.
+
+    A broad body search previously reused an unrelated 244-item card on almost every list.
+    """
+    selectors = [
+        '[data-testid*="list-title"]',
+        '[class*="listTitle"]',
+        'main h1',
+        'main h2',
+        'h1',
+        'h2',
     ]
     for selector in selectors:
         try:
-            text = normalize_text(page.locator(selector).first.inner_text(timeout=1200))
-            if text and len(text) < 180 and text.lower() not in {"amazon", "amazon.com"}:
-                return text
+            locator = page.locator(selector)
+            for index in range(min(locator.count(), 12)):
+                node = locator.nth(index)
+                texts = [normalize_text(node.inner_text(timeout=500))]
+                try:
+                    texts.append(normalize_text(node.locator("xpath=..").inner_text(timeout=500)))
+                except Exception:
+                    pass
+                for text in texts:
+                    match = re.search(r"\b(\d{1,5})\s+Items\b", text, re.IGNORECASE)
+                    if match:
+                        return int(match.group(1))
         except Exception:
             pass
-    return fallback
-
-
-def expected_count(page) -> int | None:
-    try:
-        text = page.locator("body").inner_text(timeout=5000)
-        matches = re.findall(r"(?im)^\s*(\d{1,4})\s+Items\s*$", text)
-        return int(matches[0]) if matches else None
-    except Exception:
-        return None
-
+    return fallback_count
 
 def trim_recommendations(html: str) -> str:
     cuts = []
@@ -274,13 +417,13 @@ def collect_list_links(page, storefront_url: str) -> dict[str, dict[str, str]]:
     found: dict[str, dict[str, str]] = {}
     try:
         for list_id, url in extract_list_links_from_html(page.content(), storefront_url).items():
-            found[list_id] = {"list_id": list_id, "idea_list_url": url, "amazon_title": list_id}
+            found[list_id] = {"list_id": list_id, "idea_list_url": url, "amazon_title": "", "displayed_count": ""}
     except Exception:
         pass
 
     try:
         anchors = page.locator('a[href*="/shop/"][href*="/list/"]')
-        count = min(anchors.count(), 2000)
+        count = min(anchors.count(), 2500)
         for index in range(count):
             anchor = anchors.nth(index)
             href = anchor.get_attribute("href") or ""
@@ -288,19 +431,41 @@ def collect_list_links(page, storefront_url: str) -> dict[str, dict[str, str]]:
             list_id = extract_list_id(url)
             if not list_id:
                 continue
+            samples: list[str] = []
             try:
-                title = normalize_text(anchor.inner_text(timeout=350))
+                samples.append(anchor.inner_text(timeout=250))
             except Exception:
-                title = ""
+                pass
+            # The link itself often says only 'See all'. Walk upward until the containing
+            # Idea List card provides the real title and item count.
+            for depth in range(1, 7):
+                try:
+                    parent = anchor.locator("xpath=" + "/.." * depth)
+                    text = parent.inner_text(timeout=250)
+                    if text and len(text) < 1200:
+                        samples.append(text)
+                except Exception:
+                    pass
+            title = ""
+            displayed_count: int | None = None
+            for sample in samples:
+                parsed_title, parsed_count = parse_title_and_count(sample)
+                if not title and is_valid_list_title(parsed_title):
+                    title = parsed_title
+                if displayed_count is None and parsed_count is not None:
+                    displayed_count = parsed_count
+                if title and displayed_count is not None:
+                    break
+            previous = found.get(list_id, {})
             found[list_id] = {
                 "list_id": list_id,
                 "idea_list_url": url,
-                "amazon_title": title or found.get(list_id, {}).get("amazon_title") or list_id,
+                "amazon_title": title or previous.get("amazon_title", ""),
+                "displayed_count": str(displayed_count or previous.get("displayed_count") or ""),
             }
     except Exception:
         pass
     return found
-
 
 def open_idea_lists_view(page) -> None:
     """Open the storefront's dedicated Idea Lists view without following other Amazon content."""
@@ -419,23 +584,51 @@ def discover_all_lists(context, settings: dict[str, Any], approved: list[dict[st
                 "list_id": entry["list_id"],
                 "idea_list_url": entry["idea_list_url"],
                 "amazon_title": entry["fallback_name"],
+                "displayed_count": "",
             },
         )
 
     print(f"Idea List discovery complete: {len(discovered)} lists found.")
     return [discovered[key] for key in sorted(discovered)]
 
-def scrape_list(context, entry: dict[str, str], quiet: bool = False) -> tuple[str, set[str], int | None]:
-    """Collect every ASIN from one Amazon Idea List, including lazy-loaded items."""
+def scrape_list(
+    context,
+    entry: dict[str, str],
+    quiet: bool = False,
+    *,
+    force_refresh: bool = False,
+    cache_days: int = 7,
+) -> tuple[str, set[str], int | None, bool]:
+    """Collect one list with checkpointing and fast incremental reuse.
+
+    Returns title, ASINs, trusted displayed count and whether the browser was used.
+    """
+    list_id = entry["list_id"]
+    fallback = entry.get("current_title") or entry.get("fallback_name") or list_id
+    card_count = None
+    try:
+        card_count = int(entry.get("displayed_count") or 0) or None
+    except Exception:
+        card_count = None
+    cached = load_list_cache(list_id)
+    if cached and not force_refresh and cache_is_fresh(cached, cache_days):
+        cached_asins = {normalize_text(value).upper() for value in cached.get("asins", []) if normalize_text(value)}
+        cached_count = cached.get("displayed_count") or card_count
+        # Re-scrape only when Amazon's current card count disagrees with the checkpoint.
+        if not card_count or card_count == len(cached_asins) or card_count == cached_count:
+            title = clean_list_title(cached.get("title")) or fallback
+            if not quiet:
+                print(f"Using checkpoint for {title}: {len(cached_asins)} products")
+            return title, cached_asins, int(cached_count) if str(cached_count or "").isdigit() else card_count, False
+
     page = context.new_page()
     try:
         if not quiet:
-            print(f"\nOpening {entry.get('current_title') or entry.get('fallback_name') or entry['list_id']}")
+            print(f"\nOpening {fallback}")
         page.goto(entry["idea_list_url"], wait_until="domcontentloaded", timeout=120000)
-        page.wait_for_timeout(2500)
-        fallback = entry.get("current_title") or entry.get("fallback_name") or entry["list_id"]
+        page.wait_for_timeout(1300)
         title = get_title(page, fallback)
-        expected = expected_count(page)
+        expected = expected_count(page, card_count)
         if not quiet:
             print(f"Amazon title: {title}")
             if expected:
@@ -443,28 +636,19 @@ def scrape_list(context, entry: dict[str, str], quiet: bool = False) -> tuple[st
 
         found: set[str] = set()
         stable_rounds = 0
-        last_height = 0
-        last_count = 0
-
-        # Amazon progressively injects products as the page moves. Do not stop merely
-        # because the 'More from...' footer exists; that footer can be present before
-        # all Idea List products have loaded.
-        for step in range(1, 701):
+        last_height = -1
+        last_count = -1
+        max_steps = 260
+        for step in range(1, max_steps + 1):
             try:
                 found.update(extract_asins(page.content()))
             except Exception:
                 pass
+            if expected and len(found) >= expected:
+                break
 
-            # Click any visible lazy-load controls Amazon may present.
-            for pattern in (r"see more", r"show more", r"load more", r"view more"):
-                try:
-                    button = page.get_by_role("button", name=re.compile(pattern, re.IGNORECASE)).last
-                    if button.is_visible(timeout=150):
-                        button.click(timeout=1000)
-                        page.wait_for_timeout(900)
-                except Exception:
-                    pass
-
+            # Fast wheel scrolling triggers Amazon's lazy loader without an 850ms wait
+            # on every movement. Pause longer only after repeated stable bottom passes.
             try:
                 metrics = page.evaluate(
                     """() => {
@@ -477,62 +661,59 @@ def scrape_list(context, entry: dict[str, str], quiet: bool = False) -> tuple[st
                 )
             except Exception:
                 metrics = {"y": 0, "h": 900, "height": last_height}
-
             current_count = len(found)
             current_height = int(metrics.get("height") or 0)
-            if not quiet and (step == 1 or current_count != last_count or step % 25 == 0):
-                print(f"  Step {step}: {current_count} unique ASINs")
-
-            if expected and current_count >= expected:
-                break
-
-            at_bottom = int(metrics.get("y") or 0) + int(metrics.get("h") or 900) >= current_height - 80
+            at_bottom = int(metrics.get("y") or 0) + int(metrics.get("h") or 900) >= current_height - 100
             unchanged = current_count == last_count and current_height == last_height
             stable_rounds = stable_rounds + 1 if unchanged and at_bottom else 0
+            if not quiet and (step == 1 or current_count != last_count or step % 30 == 0):
+                print(f"  Step {step}: {current_count} unique ASINs")
 
-            # Use wheel scrolling because Amazon's lazy loader often responds to real
-            # scroll events more reliably than a single jump to the bottom.
+            # Click only genuine product-list expansion controls, never the storefront's
+            # generic 'See all' navigation links.
+            for pattern in (r"^show more$", r"^load more$", r"^view more$"):
+                try:
+                    locator = page.get_by_role("button", name=re.compile(pattern, re.IGNORECASE))
+                    for idx in range(min(locator.count(), 3)):
+                        node = locator.nth(idx)
+                        if node.is_visible(timeout=100):
+                            node.click(timeout=700)
+                except Exception:
+                    pass
             try:
-                page.mouse.wheel(0, max(750, int(metrics.get("h") or 900) - 120))
-                page.wait_for_timeout(850)
-                if step % 12 == 0:
+                page.mouse.wheel(0, max(1100, int(metrics.get("h") or 900)))
+                page.wait_for_timeout(220 if stable_rounds < 3 else 700)
+                if step % 18 == 0:
                     page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    page.wait_for_timeout(1400)
+                    page.wait_for_timeout(800)
             except Exception:
                 pass
-
             last_count = current_count
             last_height = current_height
-
-            # Require many stable bottom passes so slow Amazon batches have time to load.
-            if stable_rounds >= 18:
+            if stable_rounds >= 8:
                 break
 
-        # One recovery sweep catches products missed by virtualized cards while scrolling.
+        # A compact recovery sweep is safer than the old 120 x 500ms sweep.
         if expected and len(found) < expected:
-            if not quiet:
-                print(f"  Recovery sweep: {len(found)}/{expected} found; rescanning top to bottom...")
             try:
                 page.evaluate("window.scrollTo(0, 0)")
-                page.wait_for_timeout(1000)
-                for _ in range(120):
+                page.wait_for_timeout(350)
+                for _ in range(50):
                     found.update(extract_asins(page.content()))
-                    page.mouse.wheel(0, 850)
-                    page.wait_for_timeout(500)
                     if len(found) >= expected:
                         break
+                    page.mouse.wheel(0, 1300)
+                    page.wait_for_timeout(180)
             except Exception:
                 pass
 
+        save_list_cache(list_id, title, found, expected)
         if not quiet:
-            suffix = ""
-            if expected and len(found) < expected:
-                suffix = f" — WARNING: Amazon shows {expected}, extracted {len(found)}"
+            suffix = f" — Amazon shows {expected}" if expected else ""
             print(f"Finished {title}: {len(found)} unique ASINs{suffix}")
-        return title, found, expected
+        return title, found, expected, True
     finally:
         page.close()
-
 
 def product_hash(asins: set[str]) -> str:
     joined = "\n".join(sorted(asins)).encode("utf-8")
@@ -548,7 +729,9 @@ def update_registry_from_discovery(
     renamed_rows: list[dict[str, str]] = []
     for entry in discovered:
         list_id = entry["list_id"]
-        title = normalize_text(entry.get("amazon_title")) or list_id
+        title = clean_list_title(entry.get("amazon_title"))
+        if not is_valid_list_title(title):
+            title = clean_list_title(registry.get(list_id, {}).get("current_title")) or clean_list_title(registry.get(list_id, {}).get("fallback_name")) or list_id
         url = entry["idea_list_url"]
         if list_id not in registry:
             registry[list_id] = {
@@ -598,13 +781,15 @@ def update_registry_from_discovery(
     return new_rows, renamed_rows
 
 
-def registry_entry(record: dict[str, str]) -> dict[str, str]:
+def registry_entry(record: dict[str, str], discovered_entry: dict[str, str] | None = None) -> dict[str, str]:
+    discovered_entry = discovered_entry or {}
     return {
         "list_id": record["list_id"],
         "fallback_name": record.get("fallback_name") or record.get("current_title") or record["list_id"],
         "current_title": record.get("current_title") or record.get("fallback_name") or record["list_id"],
         "idea_list_url": record["idea_list_url"],
         "stable_meta_label": record.get("stable_meta_label") or stable_meta_label(record["list_id"]),
+        "displayed_count": discovered_entry.get("displayed_count", ""),
     }
 
 
@@ -831,6 +1016,20 @@ def meta_row(
     }
 
 
+def refresh_cached_row_labels(
+    row: dict[str, str],
+    stable_labels: list[str],
+    readable_titles: list[str],
+) -> dict[str, str]:
+    updated = {field: normalize_text(row.get(field)) for field in META_FIELDS}
+    labels = [normalize_text(value)[:100] for value in stable_labels if normalize_text(value)][:5]
+    labels.extend([""] * (5 - len(labels)))
+    updated["internal_label"] = format_internal_labels(readable_titles)
+    for index in range(5):
+        updated[f"custom_label_{index}"] = labels[index]
+    return updated
+
+
 def publish(settings: dict[str, Any]) -> str:
     if not settings.get("auto_git_publish", False):
         return "Git publishing is OFF. Verify the new registry and labels first, then enable it in config/settings.json."
@@ -868,7 +1067,7 @@ def maybe_open_report(settings: dict[str, Any], path: Path) -> None:
 
 
 def main() -> int:
-    for directory in (CONFIG, PUBLIC, OUTPUT, REPORTS, LOGS):
+    for directory in (CONFIG, PUBLIC, OUTPUT, REPORTS, LOGS, CACHE, LIST_CACHE):
         directory.mkdir(parents=True, exist_ok=True)
 
     settings = load_settings()
@@ -892,21 +1091,27 @@ def main() -> int:
     renamed_lists: list[dict[str, str]] = []
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=False)
+        browser = playwright.chromium.launch(headless=bool(settings.get("headless", True)))
         context = browser.new_context(viewport={"width": 1400, "height": 1000}, locale="en-US")
 
         if settings.get("discover_storefront_lists", True):
             all_discovered = discover_all_lists(context, settings, approved)
             new_lists, renamed_lists = update_registry_from_discovery(registry, all_discovered)
 
+        discovered_by_id = {entry["list_id"]: entry for entry in all_discovered}
         approved_records = [record for record in registry.values() if record.get("idea_list_url")]
         approved_records.sort(key=lambda record: (normalize_text(record.get("current_title")).lower(), record["list_id"]))
 
         print(f"\nAll discovered Idea Lists to publish: {len(approved_records)}")
         for record in approved_records:
-            entry = registry_entry(record)
+            entry = registry_entry(record, discovered_by_id.get(record["list_id"]))
             try:
-                title, asins, expected = scrape_list(context, entry)
+                title, asins, expected, used_browser = scrape_list(
+                    context,
+                    entry,
+                    force_refresh=bool(settings.get("force_full_list_rescan", False)),
+                    cache_days=int(settings.get("list_cache_days", 7)),
+                )
                 hash_value = product_hash(asins)
                 old_hash = record.get("product_hash", "")
                 changed = bool(old_hash and old_hash != hash_value)
@@ -929,6 +1134,7 @@ def main() -> int:
                         "changed_since_previous_run": "yes" if changed else "no",
                         "count_status": "complete" if not expected or len(asins) >= expected else "incomplete",
                         "missing_from_displayed_count": max(0, (expected or 0) - len(asins)) if expected else "",
+                        "source": "browser" if used_browser else "checkpoint",
                     }
                 )
                 for asin in asins:
@@ -983,6 +1189,7 @@ def main() -> int:
             "changed_since_previous_run",
             "count_status",
             "missing_from_displayed_count",
+            "source",
         ],
     )
 
@@ -1033,57 +1240,70 @@ def main() -> int:
         maybe_open_report(settings, REPORTS / "new_lists_found.csv")
         return 1
 
-    access_token = token(client_id, client_secret)
-    print("\nAmazon Creators API authentication succeeded.")
-    asins = sorted(memberships_titles)
+    # Reuse product details already obtained in prior runs. This avoids re-requesting
+    # thousands of stable titles/images every day; only new ASINs are sent to Amazon.
+    cached_rows_list = read_csv(OUTPUT / "meta_catalog_all_returned.csv") or read_csv(PUBLIC / "meta_catalog.csv")
+    cached_rows = {normalize_text(row.get("id")).upper(): row for row in cached_rows_list if normalize_text(row.get("id"))}
+    refresh_all = bool(settings.get("refresh_all_product_data", False))
+    reusable_asins = set() if refresh_all else {asin for asin in asins if asin in cached_rows}
+    fetch_asins = [asin for asin in asins if asin not in reusable_asins]
+    print(f"\nProduct cache: reusing {len(reusable_asins)} products; fetching {len(fetch_asins)} new/uncached products.")
+
     items_by_asin: dict[str, dict[str, Any]] = {}
     errors: list[Any] = []
+    if fetch_asins:
+        access_token = token(client_id, client_secret)
+        print("Amazon Creators API authentication succeeded.")
+        api_delay = float(settings.get("api_delay_seconds", 0.35))
+        for batch_number, batch in enumerate(chunks(fetch_asins, 10), start=1):
+            print(f"Getting new product data: batch {batch_number}/{(len(fetch_asins) + 9) // 10}")
+            try:
+                items, batch_errors = get_items_with_retry(access_token, partner_tag, batch, max_attempts=4)
+                for item in items:
+                    asin = normalize_text(item.get("asin")).upper()
+                    if asin:
+                        items_by_asin[asin] = item
+                errors.extend(batch_errors)
+            except Exception as exc:
+                errors.append({"asins": batch, "message": str(exc)})
+            time.sleep(api_delay)
 
-    for batch_number, batch in enumerate(chunks(asins, 10), start=1):
-        print(f"Getting product data: batch {batch_number}/{(len(asins) + 9) // 10}")
-        items, batch_errors = get_items_with_retry(
-            access_token,
-            partner_tag,
-            batch,
+        # Retry omissions in batches, not one ASIN at a time. Failed products are left
+        # for the next run instead of turning a catalog refresh into an hours-long loop.
+        for retry_round in range(1, 3):
+            omitted = [asin for asin in fetch_asins if asin not in items_by_asin]
+            if not omitted:
+                break
+            print(f"Batch retry round {retry_round}: {len(omitted)} products")
+            for batch in chunks(omitted, 10):
+                try:
+                    items, retry_errors = get_items_with_retry(access_token, partner_tag, batch, max_attempts=3)
+                    errors.extend(retry_errors)
+                    for item in items:
+                        returned_asin = normalize_text(item.get("asin")).upper()
+                        if returned_asin:
+                            items_by_asin[returned_asin] = item
+                except Exception as exc:
+                    errors.append({"asins": batch, "message": str(exc)})
+                time.sleep(api_delay)
+
+    rows_by_asin: dict[str, dict[str, str]] = {}
+    for asin in reusable_asins:
+        rows_by_asin[asin] = refresh_cached_row_labels(
+            cached_rows[asin],
+            sorted(memberships_keys.get(asin, set())),
+            sorted(memberships_titles.get(asin, set())),
         )
-        for item in items:
-            asin = normalize_text(item.get("asin")).upper()
-            if asin:
-                items_by_asin[asin] = item
-        errors.extend(batch_errors)
-        time.sleep(1.1)
-
-    omitted = [asin for asin in asins if asin not in items_by_asin]
-    for index, asin in enumerate(omitted, start=1):
-        print(f"Retry {index}/{len(omitted)}: {asin}")
-        try:
-            items, retry_errors = get_items_with_retry(
-                access_token,
-                partner_tag,
-                [asin],
-                max_attempts=5,
-            )
-            errors.extend(retry_errors)
-            for item in items:
-                returned_asin = normalize_text(item.get("asin")).upper()
-                if returned_asin:
-                    items_by_asin[returned_asin] = item
-        except Exception as exc:
-            errors.append({"asin": asin, "message": str(exc)})
-        time.sleep(1.1)
-
-    rows = [
-        meta_row(
+    for asin, item in items_by_asin.items():
+        rows_by_asin[asin] = meta_row(
             item,
             sorted(memberships_keys.get(asin, set())),
             sorted(memberships_titles.get(asin, set())),
         )
-        for asin, item in items_by_asin.items()
-    ]
-    rows.sort(key=lambda row: row["id"])
+
+    rows = [rows_by_asin[asin] for asin in sorted(rows_by_asin)]
     ready = [
-        row
-        for row in rows
+        row for row in rows
         if row["id"] and row["title"] and row["link"] and row["image_link"] and row["price"]
     ]
 
@@ -1112,7 +1332,7 @@ def main() -> int:
     review = []
     for asin in asins:
         titles = " | ".join(sorted(memberships_titles[asin]))
-        if asin not in items_by_asin:
+        if asin not in rows_by_asin:
             review.append(
                 {
                     "asin": asin,
