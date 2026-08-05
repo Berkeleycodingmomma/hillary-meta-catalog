@@ -426,12 +426,13 @@ def discover_all_lists(context, settings: dict[str, Any], approved: list[dict[st
     return [discovered[key] for key in sorted(discovered)]
 
 def scrape_list(context, entry: dict[str, str], quiet: bool = False) -> tuple[str, set[str], int | None]:
+    """Collect every ASIN from one Amazon Idea List, including lazy-loaded items."""
     page = context.new_page()
     try:
         if not quiet:
             print(f"\nOpening {entry.get('current_title') or entry.get('fallback_name') or entry['list_id']}")
         page.goto(entry["idea_list_url"], wait_until="domcontentloaded", timeout=120000)
-        page.wait_for_timeout(1800)
+        page.wait_for_timeout(2500)
         fallback = entry.get("current_title") or entry.get("fallback_name") or entry["list_id"]
         title = get_title(page, fallback)
         expected = expected_count(page)
@@ -441,42 +442,93 @@ def scrape_list(context, entry: dict[str, str], quiet: bool = False) -> tuple[st
                 print(f"Amazon displays {expected} items.")
 
         found: set[str] = set()
-        no_new = 0
-        for step in range(1, 301):
-            before = len(found)
+        stable_rounds = 0
+        last_height = 0
+        last_count = 0
+
+        # Amazon progressively injects products as the page moves. Do not stop merely
+        # because the 'More from...' footer exists; that footer can be present before
+        # all Idea List products have loaded.
+        for step in range(1, 701):
             try:
                 found.update(extract_asins(page.content()))
             except Exception:
                 pass
-            added = len(found) - before
-            if not quiet and (step == 1 or added or step % 20 == 0):
-                print(f"  Step {step}: {len(found)} unique ASINs (+{added})")
-            if expected and len(found) >= expected:
-                break
+
+            # Click any visible lazy-load controls Amazon may present.
+            for pattern in (r"see more", r"show more", r"load more", r"view more"):
+                try:
+                    button = page.get_by_role("button", name=re.compile(pattern, re.IGNORECASE)).last
+                    if button.is_visible(timeout=150):
+                        button.click(timeout=1000)
+                        page.wait_for_timeout(900)
+                except Exception:
+                    pass
+
             try:
-                body = page.locator("body").inner_text(timeout=1200)
-                if re.search(r"More\s+from\s+THE\s+HILLARY\s+STYLE", body, re.IGNORECASE):
-                    break
-            except Exception:
-                pass
-            no_new = no_new + 1 if added == 0 else 0
-            try:
-                y, max_y = page.evaluate(
+                metrics = page.evaluate(
                     """() => {
+                        const root = document.scrollingElement || document.documentElement;
                         const h = window.innerHeight || 900;
-                        window.scrollBy(0, Math.max(500, Math.floor(h * 0.75)));
-                        const maxY = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - h;
-                        return [window.scrollY, maxY];
+                        const height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+                        const y = root.scrollTop || window.scrollY || 0;
+                        return {y, h, height};
                     }"""
                 )
-                page.wait_for_timeout(700)
-                bottom = int(y) >= int(max_y) - 50
             except Exception:
-                bottom = False
-            if (bottom and no_new >= 8) or no_new >= 20:
+                metrics = {"y": 0, "h": 900, "height": last_height}
+
+            current_count = len(found)
+            current_height = int(metrics.get("height") or 0)
+            if not quiet and (step == 1 or current_count != last_count or step % 25 == 0):
+                print(f"  Step {step}: {current_count} unique ASINs")
+
+            if expected and current_count >= expected:
                 break
+
+            at_bottom = int(metrics.get("y") or 0) + int(metrics.get("h") or 900) >= current_height - 80
+            unchanged = current_count == last_count and current_height == last_height
+            stable_rounds = stable_rounds + 1 if unchanged and at_bottom else 0
+
+            # Use wheel scrolling because Amazon's lazy loader often responds to real
+            # scroll events more reliably than a single jump to the bottom.
+            try:
+                page.mouse.wheel(0, max(750, int(metrics.get("h") or 900) - 120))
+                page.wait_for_timeout(850)
+                if step % 12 == 0:
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    page.wait_for_timeout(1400)
+            except Exception:
+                pass
+
+            last_count = current_count
+            last_height = current_height
+
+            # Require many stable bottom passes so slow Amazon batches have time to load.
+            if stable_rounds >= 18:
+                break
+
+        # One recovery sweep catches products missed by virtualized cards while scrolling.
+        if expected and len(found) < expected:
+            if not quiet:
+                print(f"  Recovery sweep: {len(found)}/{expected} found; rescanning top to bottom...")
+            try:
+                page.evaluate("window.scrollTo(0, 0)")
+                page.wait_for_timeout(1000)
+                for _ in range(120):
+                    found.update(extract_asins(page.content()))
+                    page.mouse.wheel(0, 850)
+                    page.wait_for_timeout(500)
+                    if len(found) >= expected:
+                        break
+            except Exception:
+                pass
+
         if not quiet:
-            print(f"Finished {title}: {len(found)} unique ASINs")
+            suffix = ""
+            if expected and len(found) < expected:
+                suffix = f" — WARNING: Amazon shows {expected}, extracted {len(found)}"
+            print(f"Finished {title}: {len(found)} unique ASINs{suffix}")
         return title, found, expected
     finally:
         page.close()
@@ -875,6 +927,8 @@ def main() -> int:
                         "displayed_count": expected or "",
                         "unique_asins": len(asins),
                         "changed_since_previous_run": "yes" if changed else "no",
+                        "count_status": "complete" if not expected or len(asins) >= expected else "incomplete",
+                        "missing_from_displayed_count": max(0, (expected or 0) - len(asins)) if expected else "",
                     }
                 )
                 for asin in asins:
@@ -927,6 +981,22 @@ def main() -> int:
             "displayed_count",
             "unique_asins",
             "changed_since_previous_run",
+            "count_status",
+            "missing_from_displayed_count",
+        ],
+    )
+
+    count_mismatches = [row for row in resolved if row.get("count_status") == "incomplete"]
+    write_csv(
+        REPORTS / "list_count_mismatches.csv",
+        count_mismatches,
+        [
+            "list_id",
+            "current_title",
+            "idea_list_url",
+            "displayed_count",
+            "unique_asins",
+            "missing_from_displayed_count",
         ],
     )
 
@@ -1088,6 +1158,7 @@ def main() -> int:
         f"Renamed lists found: {len(renamed_lists)}",
         f"Lists changed since previous run: {sum(1 for item in resolved if item.get('changed_since_previous_run') == 'yes')}",
         f"Idea Lists processed: {len(resolved)}",
+        f"Idea Lists with incomplete item counts: {len(count_mismatches)}",
         f"Unique ASINs extracted from all lists: {len(asins)}",
         f"Products returned by Amazon API: {len(rows)}",
         f"Meta-ready products: {len(ready)}",
