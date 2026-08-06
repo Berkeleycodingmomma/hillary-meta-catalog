@@ -117,6 +117,7 @@ def normalize_text(value: Any) -> str:
 
 GENERIC_TITLES = {
     "see all", "view all", "show more", "load more", "more", "idea lists",
+    "next page", "previous page", "prev page", "back", "forward",
     "all", "amazon", "amazon.com", "shop", "products", "items"
 }
 
@@ -964,7 +965,7 @@ def format_internal_labels(readable_titles: list[str]) -> str:
     seen: set[str] = set()
     for value in readable_titles:
         label = normalize_text(value)[:110]
-        if not label or label.lower() in {"see all", "view all", "show more", "load more"}:
+        if not label or label.lower() in {"see all", "view all", "show more", "load more", "next page", "previous page", "prev page"}:
             continue
         key = label.casefold()
         if key in seen:
@@ -1137,7 +1138,7 @@ def main() -> int:
                         "source": "browser" if used_browser else "checkpoint",
                     }
                 )
-                for asin in asins:
+                for asin in all_asins:
                     memberships_titles[asin].add(title)
                     memberships_keys[asin].add(record["stable_meta_label"])
             except PlaywrightTimeoutError:
@@ -1151,6 +1152,10 @@ def main() -> int:
         browser.close()
 
     save_registry(registry)
+
+    # Build the authoritative product universe from every Idea List membership.
+    # Never reuse the loop variable `asins`, which contains only the final list processed.
+    all_asins = sorted(memberships_titles.keys())
 
     write_csv(
         REPORTS / "new_lists_found.csv",
@@ -1245,8 +1250,8 @@ def main() -> int:
     cached_rows_list = read_csv(OUTPUT / "meta_catalog_all_returned.csv") or read_csv(PUBLIC / "meta_catalog.csv")
     cached_rows = {normalize_text(row.get("id")).upper(): row for row in cached_rows_list if normalize_text(row.get("id"))}
     refresh_all = bool(settings.get("refresh_all_product_data", False))
-    reusable_asins = set() if refresh_all else {asin for asin in asins if asin in cached_rows}
-    fetch_asins = [asin for asin in asins if asin not in reusable_asins]
+    reusable_asins = set() if refresh_all else {asin for asin in all_asins if asin in cached_rows}
+    fetch_asins = [asin for asin in all_asins if asin not in reusable_asins]
     print(f"\nProduct cache: reusing {len(reusable_asins)} products; fetching {len(fetch_asins)} new/uncached products.")
 
     items_by_asin: dict[str, dict[str, Any]] = {}
@@ -1307,6 +1312,19 @@ def main() -> int:
         if row["id"] and row["title"] and row["link"] and row["image_link"] and row["price"]
     ]
 
+    # Safety validation: never publish navigation text as an Internal Label.
+    invalid_label_terms = {"next page", "previous page", "prev page", "see all", "view all", "show more", "load more"}
+    bad_rows = []
+    for row in ready:
+        label_text = normalize_text(row.get("internal_label")).casefold()
+        if any(term in label_text for term in invalid_label_terms):
+            bad_rows.append(row.get("id", ""))
+    if bad_rows:
+        raise RuntimeError(
+            f"SAFETY STOP: {len(bad_rows)} products contain navigation text in internal_label. "
+            "The public feed was not replaced."
+        )
+
     write_csv(OUTPUT / "meta_catalog_all_returned.csv", rows, META_FIELDS)
     write_csv(PUBLIC / "meta_catalog.csv", ready, META_FIELDS)
 
@@ -1330,7 +1348,7 @@ def main() -> int:
     )
 
     review = []
-    for asin in asins:
+    for asin in all_asins:
         titles = " | ".join(sorted(memberships_titles[asin]))
         if asin not in rows_by_asin:
             review.append(
@@ -1379,7 +1397,7 @@ def main() -> int:
         f"Lists changed since previous run: {sum(1 for item in resolved if item.get('changed_since_previous_run') == 'yes')}",
         f"Idea Lists processed: {len(resolved)}",
         f"Idea Lists with incomplete item counts: {len(count_mismatches)}",
-        f"Unique ASINs extracted from all lists: {len(asins)}",
+        f"Unique ASINs extracted from all lists: {len(all_asins)}",
         f"Products returned by Amazon API: {len(rows)}",
         f"Meta-ready products: {len(ready)}",
         f"Products needing review: {len(review)}",
