@@ -1,0 +1,18 @@
+HILLARY STYLE META CATALOG RUN REPORT
+2026-08-05 23:07:58
+
+Storefront/linked lists discovered: 185
+New Idea Lists automatically added: 0
+Renamed lists found: 0
+Lists changed since previous run: 133
+Idea Lists processed: 185
+Idea Lists with incomplete item counts: 91
+Unique ASINs extracted from all lists: 8023
+Products returned by Amazon API: 7249
+Meta-ready products: 5764
+Products needing review: 2259
+Product-set method: Internal label (all Idea List memberships, not limited to five)
+
+PUBLIC FEED: /Users/thehillarystyle/Documents/GitHub/Berkeleycodingmomma-hillary-meta-catalog/Berkeleycodingmomma-hillary-meta-catalog/public/meta_catalog.csv
+REGISTRY FILE: /Users/thehillarystyle/Documents/GitHub/Berkeleycodingmomma-hillary-meta-catalog/Berkeleycodingmomma-hillary-meta-catalog/config/idea_list_registry.csv
+SET GUIDE: /Users/thehillarystyle/Documents/GitHub/Berkeleycodingmomma-hillary-meta-catalog/Berkeleycodingmomma-hillary-meta-catalog/reports/meta_product_set_guide.csv
