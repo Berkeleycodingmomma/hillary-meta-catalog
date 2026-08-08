@@ -99,6 +99,9 @@ REGISTRY_FIELDS = [
 ]
 
 TRUTHY = {"yes", "true", "1", "on", "y"}
+LIST_CACHE_SCHEMA = 2  # v2 = strict Idea List product-card extraction
+SUSPICIOUS_MEMBERSHIP_RATIO = 0.60
+SUSPICIOUS_MEMBERSHIP_MIN_LISTS = 25
 
 
 def now_iso() -> str:
@@ -197,6 +200,7 @@ def save_list_cache(list_id: str, title: str, asins: set[str], displayed_count: 
         list_cache_path(list_id),
         {
             "list_id": list_id,
+            "cache_schema": LIST_CACHE_SCHEMA,
             "title": title,
             "asins": sorted(asins),
             "displayed_count": displayed_count,
@@ -208,6 +212,8 @@ def save_list_cache(list_id: str, title: str, asins: set[str], displayed_count: 
 
 def cache_is_fresh(cache: dict[str, Any], days: int) -> bool:
     try:
+        if int(cache.get("cache_schema") or 0) != LIST_CACHE_SCHEMA:
+            return False
         scraped = datetime.fromisoformat(str(cache.get("scraped_at")))
         if scraped.tzinfo is None:
             scraped = scraped.replace(tzinfo=timezone.utc)
@@ -380,28 +386,95 @@ def expected_count(page, fallback_count: int | None = None) -> int | None:
             pass
     return fallback_count
 
-def trim_recommendations(html: str) -> str:
-    cuts = []
-    for pattern in [r"More\s+from\s+THE\s+HILLARY\s+STYLE", r"More\s+from\s+"]:
-        match = re.search(pattern, html or "", re.IGNORECASE)
+
+def _asin_from_href(href: str) -> str:
+    """Extract one ASIN from a normal Amazon product URL."""
+    href = normalize_text(href)
+    for pattern in (
+        r"/dp/([A-Z0-9]{10})(?:[/?&#]|$)",
+        r"/gp/product/([A-Z0-9]{10})(?:[/?&#]|$)",
+        r"/product/([A-Z0-9]{10})(?:[/?&#]|$)",
+    ):
+        match = re.search(pattern, href, re.IGNORECASE)
         if match:
-            cuts.append(match.start())
-    return (html or "")[: min(cuts)] if cuts else (html or "")
+            return match.group(1).upper()
+    return ""
 
 
-def extract_asins(html: str) -> set[str]:
-    html = trim_recommendations(html)
+def extract_list_asins(page) -> set[str]:
+    """Extract only ASINs from the current Idea List's product area.
+
+    The old implementation searched the entire page HTML. Amazon also embeds
+    recommendation carousels, navigation products and other creator content in
+    that HTML, which caused a handful of unrelated ASINs to appear in every
+    Idea List. This extractor reads actual product links from the page DOM and
+    rejects links that live inside recommendation/navigation containers.
+    """
+    try:
+        raw = page.evaluate(
+            r"""() => {
+                const badText = /(more\s+from|you\s+might\s+also|customers?\s+also|related\s+products?|recommended|recommendations|inspired\s+by|sponsored|similar\s+items?|shop\s+more)/i;
+                const badMeta = /(recommend|carousel|sponsored|similar|related|more-from|more_from|shop-more|shop_more)/i;
+
+                let cutoffY = Infinity;
+                const all = Array.from(document.querySelectorAll('main *'));
+                for (const el of all) {
+                    const txt = (el.innerText || '').trim();
+                    if (txt && txt.length < 180 && /^(more\s+from|you\s+might\s+also|customers?\s+also|related\s+products?|recommended)/i.test(txt)) {
+                        const r = el.getBoundingClientRect();
+                        cutoffY = Math.min(cutoffY, r.top + window.scrollY);
+                    }
+                }
+
+                const anchors = Array.from(document.querySelectorAll(
+                    'main a[href*="/dp/"], main a[href*="/gp/product/"], main a[href*="/product/"]'
+                ));
+                const out = [];
+                for (const a of anchors) {
+                    const href = a.getAttribute('href') || '';
+                    if (!href) continue;
+
+                    const rect = a.getBoundingClientRect();
+                    const absY = rect.top + window.scrollY;
+                    if (absY >= cutoffY) continue;
+
+                    let node = a;
+                    let blocked = false;
+                    for (let depth = 0; node && depth < 8; depth++, node = node.parentElement) {
+                        const tag = (node.tagName || '').toUpperCase();
+                        if (['HEADER', 'NAV', 'FOOTER', 'ASIDE'].includes(tag)) {
+                            blocked = true;
+                            break;
+                        }
+                        const meta = [
+                            node.id || '',
+                            node.className || '',
+                            node.getAttribute && node.getAttribute('data-testid') || '',
+                            node.getAttribute && node.getAttribute('aria-label') || ''
+                        ].join(' ');
+                        if (badMeta.test(meta)) {
+                            blocked = true;
+                            break;
+                        }
+                        const txt = (node.innerText || '').trim();
+                        if (txt && txt.length < 500 && badText.test(txt)) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                    if (!blocked) out.push(href);
+                }
+                return out;
+            }"""
+        )
+    except Exception:
+        return set()
+
     found: set[str] = set()
-    patterns = [
-        r"/dp/([A-Z0-9]{10})(?:[/?&#\"']|$)",
-        r"/gp/product/([A-Z0-9]{10})(?:[/?&#\"']|$)",
-        r"/product/([A-Z0-9]{10})(?:[/?&#\"']|$)",
-        r"data-asin=[\"']([A-Z0-9]{10})[\"']",
-        r"[\"'](?:asin|ASIN|productAsin|productASIN|productId)[\"']\s*[:=]\s*[\"']([A-Z0-9]{10})[\"']",
-    ]
-    for pattern in patterns:
-        for match in re.finditer(pattern, html, re.IGNORECASE):
-            found.add(match.group(1).upper())
+    for href in raw or []:
+        asin = _asin_from_href(str(href))
+        if asin:
+            found.add(asin)
     return found
 
 
@@ -642,7 +715,7 @@ def scrape_list(
         max_steps = 260
         for step in range(1, max_steps + 1):
             try:
-                found.update(extract_asins(page.content()))
+                found.update(extract_list_asins(page))
             except Exception:
                 pass
             if expected and len(found) >= expected:
@@ -700,7 +773,7 @@ def scrape_list(
                 page.evaluate("window.scrollTo(0, 0)")
                 page.wait_for_timeout(350)
                 for _ in range(50):
-                    found.update(extract_asins(page.content()))
+                    found.update(extract_list_asins(page))
                     if len(found) >= expected:
                         break
                     page.mouse.wheel(0, 1300)
@@ -1245,6 +1318,38 @@ def main() -> int:
         maybe_open_report(settings, REPORTS / "new_lists_found.csv")
         return 1
 
+    # Cross-list contamination guard. A product appearing in most of the storefront's
+    # Idea Lists is almost certainly a recommendation/navigation product rather than
+    # a real member of every list. Never silently publish that pattern again.
+    processed_list_count = max(1, len(resolved))
+    suspicious_threshold = max(
+        SUSPICIOUS_MEMBERSHIP_MIN_LISTS,
+        int(processed_list_count * SUSPICIOUS_MEMBERSHIP_RATIO),
+    )
+    suspicious_rows = []
+    for asin, titles_set in memberships_titles.items():
+        if len(titles_set) >= suspicious_threshold:
+            suspicious_rows.append(
+                {
+                    "asin": asin,
+                    "idea_list_count": len(titles_set),
+                    "idea_list_titles": "|".join(sorted(titles_set)),
+                    "reason": f"Appears in {len(titles_set)} of {processed_list_count} processed Idea Lists",
+                }
+            )
+    write_csv(
+        REPORTS / "suspicious_cross_list_products.csv",
+        suspicious_rows,
+        ["asin", "idea_list_count", "idea_list_titles", "reason"],
+    )
+    if suspicious_rows:
+        sample = ", ".join(row["asin"] for row in suspicious_rows[:10])
+        raise RuntimeError(
+            f"SAFETY STOP: {len(suspicious_rows)} products still appear in an implausibly high number "
+            f"of Idea Lists (threshold {suspicious_threshold}/{processed_list_count}). "
+            f"Examples: {sample}. The public feed was not replaced."
+        )
+
     # Reuse product details already obtained in prior runs. This avoids re-requesting
     # thousands of stable titles/images every day; only new ASINs are sent to Amazon.
     cached_rows_list = read_csv(OUTPUT / "meta_catalog_all_returned.csv") or read_csv(PUBLIC / "meta_catalog.csv")
@@ -1402,6 +1507,7 @@ def main() -> int:
         f"Meta-ready products: {len(ready)}",
         f"Products needing review: {len(review)}",
         "Product-set method: Internal label (all Idea List memberships, not limited to five)",
+        f"List extraction cache schema: {LIST_CACHE_SCHEMA} (strict product-card DOM extraction)",
         "",
         f"PUBLIC FEED: {PUBLIC / 'meta_catalog.csv'}",
         f"REGISTRY FILE: {CONFIG / 'idea_list_registry.csv'}",
