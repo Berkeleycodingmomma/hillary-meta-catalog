@@ -99,7 +99,7 @@ REGISTRY_FIELDS = [
 ]
 
 TRUTHY = {"yes", "true", "1", "on", "y"}
-LIST_CACHE_SCHEMA = 2  # v2 = strict Idea List product-card extraction
+LIST_CACHE_SCHEMA = 3  # v3 = safe whole-document Idea List product-card extraction
 SUSPICIOUS_MEMBERSHIP_RATIO = 0.60
 SUSPICIOUS_MEMBERSHIP_MIN_LISTS = 25
 
@@ -402,81 +402,125 @@ def _asin_from_href(href: str) -> str:
 
 
 def extract_list_asins(page) -> set[str]:
-    """Extract only ASINs from the current Idea List's product area.
+    """Extract ASINs from the current Idea List while excluding recommendation UI.
 
-    The old implementation searched the entire page HTML. Amazon also embeds
-    recommendation carousels, navigation products and other creator content in
-    that HTML, which caused a handful of unrelated ASINs to appear in every
-    Idea List. This extractor reads actual product links from the page DOM and
-    rejects links that live inside recommendation/navigation containers.
+    Amazon's Influencer storefront does not consistently wrap Idea List cards in a
+    semantic ``<main>`` element.  The previous strict extractor therefore returned
+    zero products on valid lists.  This version searches the whole document for
+    product-card evidence, but rejects navigation, sponsored/recommended sections,
+    and anything below an explicit recommendation heading.
+
+    It intentionally supports several Amazon card shapes: normal product links,
+    ``data-asin`` attributes, and common product-id data attributes.
     """
     try:
         raw = page.evaluate(
             r"""() => {
-                const badText = /(more\s+from|you\s+might\s+also|customers?\s+also|related\s+products?|recommended|recommendations|inspired\s+by|sponsored|similar\s+items?|shop\s+more)/i;
-                const badMeta = /(recommend|carousel|sponsored|similar|related|more-from|more_from|shop-more|shop_more)/i;
+                const badHeading = /^(more\s+from|you\s+might\s+also|customers?\s+also|related\s+products?|recommended(?:\s+for\s+you)?|recommendations|inspired\s+by|similar\s+items?|shop\s+more)\b/i;
+                const badMeta = /(recommend|carousel|sponsored|similar|related|more-from|more_from|shop-more|shop_more|adplacements?|desktop-dp-sims)/i;
+                const asinRe = /^[A-Z0-9]{10}$/i;
 
+                // Recommendation modules are normally rendered after the real list.
+                // Find the first clearly labelled recommendation heading and reject
+                // product evidence below it.
                 let cutoffY = Infinity;
-                const all = Array.from(document.querySelectorAll('main *'));
-                for (const el of all) {
-                    const txt = (el.innerText || '').trim();
-                    if (txt && txt.length < 180 && /^(more\s+from|you\s+might\s+also|customers?\s+also|related\s+products?|recommended)/i.test(txt)) {
+                const headingSelectors = 'h1,h2,h3,h4,h5,h6,[role="heading"]';
+                for (const el of Array.from(document.querySelectorAll(headingSelectors))) {
+                    const txt = (el.innerText || el.textContent || '').trim();
+                    if (txt && txt.length < 220 && badHeading.test(txt)) {
                         const r = el.getBoundingClientRect();
                         cutoffY = Math.min(cutoffY, r.top + window.scrollY);
                     }
                 }
 
-                const anchors = Array.from(document.querySelectorAll(
-                    'main a[href*="/dp/"], main a[href*="/gp/product/"], main a[href*="/product/"]'
-                ));
-                const out = [];
-                for (const a of anchors) {
-                    const href = a.getAttribute('href') || '';
-                    if (!href) continue;
+                const isVisibleEnough = (el) => {
+                    try {
+                        const r = el.getBoundingClientRect();
+                        const st = window.getComputedStyle(el);
+                        return st.display !== 'none' && st.visibility !== 'hidden' && r.width >= 1 && r.height >= 1;
+                    } catch (_) {
+                        return true;
+                    }
+                };
 
-                    const rect = a.getBoundingClientRect();
-                    const absY = rect.top + window.scrollY;
-                    if (absY >= cutoffY) continue;
-
-                    let node = a;
-                    let blocked = false;
-                    for (let depth = 0; node && depth < 8; depth++, node = node.parentElement) {
+                const isBlocked = (el) => {
+                    let node = el;
+                    for (let depth = 0; node && depth < 10; depth++, node = node.parentElement) {
                         const tag = (node.tagName || '').toUpperCase();
-                        if (['HEADER', 'NAV', 'FOOTER', 'ASIDE'].includes(tag)) {
-                            blocked = true;
-                            break;
-                        }
+                        if (['HEADER', 'NAV', 'FOOTER', 'ASIDE'].includes(tag)) return true;
+
                         const meta = [
                             node.id || '',
-                            node.className || '',
+                            typeof node.className === 'string' ? node.className : '',
                             node.getAttribute && node.getAttribute('data-testid') || '',
+                            node.getAttribute && node.getAttribute('data-component-type') || '',
+                            node.getAttribute && node.getAttribute('data-cel-widget') || '',
                             node.getAttribute && node.getAttribute('aria-label') || ''
                         ].join(' ');
-                        if (badMeta.test(meta)) {
-                            blocked = true;
-                            break;
-                        }
+                        if (badMeta.test(meta)) return true;
+
                         const txt = (node.innerText || '').trim();
-                        if (txt && txt.length < 500 && badText.test(txt)) {
-                            blocked = true;
-                            break;
-                        }
+                        if (txt && txt.length < 260 && badHeading.test(txt)) return true;
                     }
-                    if (!blocked) out.push(href);
+                    return false;
+                };
+
+                const beforeCutoff = (el) => {
+                    try {
+                        const r = el.getBoundingClientRect();
+                        return (r.top + window.scrollY) < cutoffY;
+                    } catch (_) {
+                        return true;
+                    }
+                };
+
+                const values = [];
+                const push = (value) => {
+                    const v = String(value || '').trim();
+                    if (v) values.push(v);
+                };
+
+                // 1) Product links.  Search the entire document instead of `main`,
+                // because current Influencer list pages often omit a semantic main tag.
+                const anchors = Array.from(document.querySelectorAll(
+                    'a[href*="/dp/"], a[href*="/gp/product/"], a[href*="/product/"]'
+                ));
+                for (const a of anchors) {
+                    if (!isVisibleEnough(a) || !beforeCutoff(a) || isBlocked(a)) continue;
+                    push(a.getAttribute('href'));
                 }
-                return out;
+
+                // 2) Product-card attributes. Some Amazon list layouts expose the ASIN
+                // only as a data attribute and use JavaScript navigation instead of a
+                // conventional /dp/ link.
+                const attrSelectors = [
+                    '[data-asin]', '[data-product-asin]', '[data-productasin]',
+                    '[data-product-id]', '[data-productid]', '[data-item-id]'
+                ].join(',');
+                for (const el of Array.from(document.querySelectorAll(attrSelectors))) {
+                    if (!isVisibleEnough(el) || !beforeCutoff(el) || isBlocked(el)) continue;
+                    for (const name of ['data-asin','data-product-asin','data-productasin','data-product-id','data-productid','data-item-id']) {
+                        const value = el.getAttribute && el.getAttribute(name);
+                        if (value && asinRe.test(value.trim())) push(value.trim().toUpperCase());
+                    }
+                }
+
+                return values;
             }"""
         )
     except Exception:
         return set()
 
     found: set[str] = set()
-    for href in raw or []:
-        asin = _asin_from_href(str(href))
+    for value in raw or []:
+        text = normalize_text(value)
+        if re.fullmatch(r"[A-Z0-9]{10}", text, re.IGNORECASE):
+            found.add(text.upper())
+            continue
+        asin = _asin_from_href(text)
         if asin:
             found.add(asin)
     return found
-
 
 def extract_list_links_from_html(html: str, storefront_url: str) -> dict[str, str]:
     found: dict[str, str] = {}
