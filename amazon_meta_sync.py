@@ -98,6 +98,13 @@ REGISTRY_FIELDS = [
     "status",
 ]
 
+TRACKING_FIELDS = [
+    "list_id",
+    "idea_list_name",
+    "tracking_id",
+    "enabled",
+]
+
 TRUTHY = {"yes", "true", "1", "on", "y"}
 LIST_CACHE_SCHEMA = 3  # v3 = safe whole-document Idea List product-card extraction
 SUSPICIOUS_MEMBERSHIP_RATIO = 0.60
@@ -275,6 +282,76 @@ def read_csv(path: Path) -> list[dict[str, str]]:
 
 def write_csv(path: Path, rows: Iterable[dict[str, Any]], fields: list[str]) -> None:
     atomic_write_csv(path, rows, fields)
+
+
+def load_tracking_assignments(registry: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
+    """Load per-Idea-List Amazon tracking IDs from config/tracking_ids.csv."""
+    path = CONFIG / "tracking_ids.csv"
+    if not path.exists():
+        return {}
+
+    assignments: dict[str, dict[str, str]] = {}
+    seen_tracking_ids: set[str] = set()
+
+    for row in read_csv(path):
+        if normalize_text(row.get("enabled")).lower() not in TRUTHY:
+            continue
+
+        list_id = normalize_text(row.get("list_id")).upper()
+        tracking_id = normalize_text(row.get("tracking_id"))
+        idea_list_name = normalize_text(row.get("idea_list_name"))
+
+        if not list_id or not tracking_id:
+            continue
+        if list_id not in registry:
+            raise RuntimeError(
+                f"Tracking-ID mapping references unknown Idea List ID {list_id}. "
+                "Update config/tracking_ids.csv before publishing."
+            )
+        if re.search(r"\\s", tracking_id):
+            raise RuntimeError(f"Tracking ID contains whitespace: {tracking_id}")
+        if tracking_id in seen_tracking_ids:
+            raise RuntimeError(
+                f"Tracking ID {tracking_id} is assigned to more than one Idea List. "
+                "Each tracked Idea List must have its own tracking ID."
+            )
+
+        seen_tracking_ids.add(tracking_id)
+        assignments[list_id] = {
+            "list_id": list_id,
+            "idea_list_name": idea_list_name or registry[list_id].get("current_title") or list_id,
+            "tracking_id": tracking_id,
+        }
+
+    return assignments
+
+
+def affiliate_product_url(asin: str, tracking_id: str) -> str:
+    return f"https://www.amazon.com/dp/{asin}?tag={tracking_id}"
+
+
+def catalog_instance_id(asin: str, list_id: str) -> str:
+    return f"{asin}__{list_id}"
+
+
+def base_asin_from_catalog_row(row: dict[str, str]) -> str:
+    mpn = normalize_text(row.get("mpn")).upper()
+    if re.fullmatch(r"[A-Z0-9]{10}", mpn):
+        return mpn
+    row_id = normalize_text(row.get("id")).upper()
+    candidate = row_id.split("__", 1)[0]
+    return candidate if re.fullmatch(r"[A-Z0-9]{10}", candidate) else ""
+
+
+def cached_base_product_row(row: dict[str, str], asin: str, partner_tag: str) -> dict[str, str]:
+    base = {field: normalize_text(row.get(field)) for field in META_FIELDS}
+    base["id"] = asin
+    base["mpn"] = asin
+    base["link"] = affiliate_product_url(asin, partner_tag)
+    base["internal_label"] = "[]"
+    for index in range(5):
+        base[f"custom_label_{index}"] = ""
+    return base
 
 
 def read_approved(storefront_url: str) -> list[dict[str, str]]:
@@ -1222,6 +1299,7 @@ def main() -> int:
 
     memberships_titles: dict[str, set[str]] = defaultdict(set)
     memberships_keys: dict[str, set[str]] = defaultdict(set)
+    memberships_list_ids: dict[str, set[str]] = defaultdict(set)
     resolved: list[dict[str, Any]] = []
     changed_unapproved: list[dict[str, Any]] = []
     all_discovered: list[dict[str, str]] = []
@@ -1284,6 +1362,7 @@ def main() -> int:
                 for asin in asins:
                     memberships_titles[asin].add(title)
                     memberships_keys[asin].add(record["stable_meta_label"])
+                    memberships_list_ids[asin].add(record["list_id"])
             except PlaywrightTimeoutError:
                 print(f"Timed out: {entry['current_title']}")
             except Exception as exc:
@@ -1420,14 +1499,28 @@ def main() -> int:
             f"Examples: {sample}. The public feed was not replaced."
         )
 
-    # Reuse product details already obtained in prior runs. This avoids re-requesting
-    # thousands of stable titles/images every day; only new ASINs are sent to Amazon.
+    # Load list-specific tracking assignments. Tracked Idea Lists get dedicated
+    # Meta item instances so the same ASIN can carry a different Amazon tracking ID
+    # in each tracked list without affecting any other Idea List.
+    tracking_assignments = load_tracking_assignments(registry)
+    tracked_list_ids = set(tracking_assignments)
+
+    # Reuse product details already obtained in prior runs. The cache may now contain
+    # multiple Meta rows for one ASIN, so recover the base ASIN from MPN/ID.
     cached_rows_list = read_csv(OUTPUT / "meta_catalog_all_returned.csv") or read_csv(PUBLIC / "meta_catalog.csv")
-    cached_rows = {normalize_text(row.get("id")).upper(): row for row in cached_rows_list if normalize_text(row.get("id"))}
+    cached_products: dict[str, dict[str, str]] = {}
+    for cached_row in cached_rows_list:
+        cached_asin = base_asin_from_catalog_row(cached_row)
+        if not cached_asin:
+            continue
+        current = cached_products.get(cached_asin)
+        if current is None or normalize_text(cached_row.get("id")).upper() == cached_asin:
+            cached_products[cached_asin] = cached_row
+
     refresh_all = bool(settings.get("refresh_all_product_data", False))
-    reusable_asins = set() if refresh_all else {asin for asin in all_asins if asin in cached_rows}
+    reusable_asins = set() if refresh_all else {asin for asin in all_asins if asin in cached_products}
     fetch_asins = [asin for asin in all_asins if asin not in reusable_asins]
-    print(f"\nProduct cache: reusing {len(reusable_asins)} products; fetching {len(fetch_asins)} new/uncached products.")
+    print(f"\\nProduct cache: reusing {len(reusable_asins)} products; fetching {len(fetch_asins)} new/uncached products.")
 
     items_by_asin: dict[str, dict[str, Any]] = {}
     errors: list[Any] = []
@@ -1448,8 +1541,6 @@ def main() -> int:
                 errors.append({"asins": batch, "message": str(exc)})
             time.sleep(api_delay)
 
-        # Retry omissions in batches, not one ASIN at a time. Failed products are left
-        # for the next run instead of turning a catalog refresh into an hours-long loop.
         for retry_round in range(1, 3):
             omitted = [asin for asin in fetch_asins if asin not in items_by_asin]
             if not omitted:
@@ -1467,25 +1558,82 @@ def main() -> int:
                     errors.append({"asins": batch, "message": str(exc)})
                 time.sleep(api_delay)
 
-    rows_by_asin: dict[str, dict[str, str]] = {}
+    # Build one neutral base product record per Amazon ASIN.
+    base_rows_by_asin: dict[str, dict[str, str]] = {}
     for asin in reusable_asins:
-        rows_by_asin[asin] = refresh_cached_row_labels(
-            cached_rows[asin],
-            sorted(memberships_keys.get(asin, set())),
-            sorted(memberships_titles.get(asin, set())),
-        )
-    for asin, item in items_by_asin.items():
-        rows_by_asin[asin] = meta_row(
-            item,
-            sorted(memberships_keys.get(asin, set())),
-            sorted(memberships_titles.get(asin, set())),
-        )
+        base_rows_by_asin[asin] = cached_base_product_row(cached_products[asin], asin, partner_tag)
 
-    rows = [rows_by_asin[asin] for asin in sorted(rows_by_asin)]
+    for asin, item in items_by_asin.items():
+        base = meta_row(item, [], [])
+        base["id"] = asin
+        base["mpn"] = asin
+        base["link"] = affiliate_product_url(asin, partner_tag)
+        base_rows_by_asin[asin] = base
+
+    # Expand base products into Meta catalog rows.
+    # Untracked lists keep a normal canonical ASIN row using Hillary's default partner tag.
+    # Every tracked list gets its own duplicate row with that list's tracking ID.
+    rows: list[dict[str, str]] = []
+    tracked_instance_count = 0
+
+    for asin in sorted(base_rows_by_asin):
+        base = base_rows_by_asin[asin]
+        asin_list_ids = set(memberships_list_ids.get(asin, set()))
+        untracked_ids = sorted(asin_list_ids - tracked_list_ids)
+        tracked_ids_for_asin = sorted(asin_list_ids & tracked_list_ids)
+
+        if untracked_ids:
+            untracked_titles = [
+                registry[list_id].get("current_title") or registry[list_id].get("fallback_name") or list_id
+                for list_id in untracked_ids
+            ]
+            untracked_labels = [
+                registry[list_id].get("stable_meta_label") or stable_meta_label(list_id)
+                for list_id in untracked_ids
+            ]
+            canonical = refresh_cached_row_labels(base, sorted(untracked_labels), sorted(untracked_titles))
+            canonical["id"] = asin
+            canonical["mpn"] = asin
+            canonical["link"] = affiliate_product_url(asin, partner_tag)
+            rows.append(canonical)
+
+        for list_id in tracked_ids_for_asin:
+            record = registry[list_id]
+            assignment = tracking_assignments[list_id]
+            list_title = record.get("current_title") or record.get("fallback_name") or list_id
+            stable_label = record.get("stable_meta_label") or stable_meta_label(list_id)
+
+            tracked_row = refresh_cached_row_labels(base, [stable_label], [list_title])
+            tracked_row["id"] = catalog_instance_id(asin, list_id)
+            tracked_row["mpn"] = asin
+            tracked_row["link"] = affiliate_product_url(asin, assignment["tracking_id"])
+            rows.append(tracked_row)
+            tracked_instance_count += 1
+
     ready = [
         row for row in rows
         if row["id"] and row["title"] and row["link"] and row["image_link"] and row["price"]
     ]
+
+    tracking_report_rows = []
+    for list_id in sorted(tracking_assignments):
+        assignment = tracking_assignments[list_id]
+        record = registry[list_id]
+        product_count = sum(1 for asin in memberships_list_ids if list_id in memberships_list_ids[asin])
+        tracking_report_rows.append(
+            {
+                "list_id": list_id,
+                "idea_list_name": record.get("current_title") or assignment["idea_list_name"],
+                "tracking_id": assignment["tracking_id"],
+                "products_in_idea_list": product_count,
+                "meta_tracked_instances": product_count,
+            }
+        )
+    write_csv(
+        REPORTS / "tracking_id_assignments.csv",
+        tracking_report_rows,
+        ["list_id", "idea_list_name", "tracking_id", "products_in_idea_list", "meta_tracked_instances"],
+    )
 
     # Safety validation: never publish navigation text as an Internal Label.
     invalid_label_terms = {"next page", "previous page", "prev page", "see all", "view all", "show more", "load more"}
@@ -1525,7 +1673,7 @@ def main() -> int:
     review = []
     for asin in all_asins:
         titles = " | ".join(sorted(memberships_titles[asin]))
-        if asin not in rows_by_asin:
+        if asin not in base_rows_by_asin:
             review.append(
                 {
                     "asin": asin,
@@ -1534,13 +1682,13 @@ def main() -> int:
                     "issue": "Amazon Creators API returned no product record after retry",
                 }
             )
-    for row in rows:
-        titles = " | ".join(sorted(memberships_titles[row["id"]]))
+    for asin, row in sorted(base_rows_by_asin.items()):
+        titles = " | ".join(sorted(memberships_titles[asin]))
         if not row["price"]:
             review.append(
                 {
-                    "asin": row["id"],
-                    "amazon_url": f"https://www.amazon.com/dp/{row['id']}?tag={partner_tag}",
+                    "asin": asin,
+                    "amazon_url": f"https://www.amazon.com/dp/{asin}?tag={partner_tag}",
                     "idea_lists": titles,
                     "issue": "Amazon Creators API returned the product but no price",
                 }
@@ -1548,8 +1696,8 @@ def main() -> int:
         if not row["image_link"]:
             review.append(
                 {
-                    "asin": row["id"],
-                    "amazon_url": f"https://www.amazon.com/dp/{row['id']}?tag={partner_tag}",
+                    "asin": asin,
+                    "amazon_url": f"https://www.amazon.com/dp/{asin}?tag={partner_tag}",
                     "idea_lists": titles,
                     "issue": "Amazon Creators API returned the product but no main image",
                 }
@@ -1573,10 +1721,12 @@ def main() -> int:
         f"Idea Lists processed: {len(resolved)}",
         f"Idea Lists with incomplete item counts: {len(count_mismatches)}",
         f"Unique ASINs extracted from all lists: {len(all_asins)}",
-        f"Products returned by Amazon API: {len(rows)}",
-        f"Meta-ready products: {len(ready)}",
+        f"Products returned/cached by Amazon ASIN: {len(base_rows_by_asin)}",
+        f"Meta-ready catalog rows: {len(ready)}",
         f"Products needing review: {len(review)}",
-        "Product-set method: Internal label (all Idea List memberships, not limited to five)",
+        "Product-set method: Internal label (tracked Idea Lists use dedicated per-list product instances)",
+        f"Tracked Idea Lists enabled: {len(tracking_assignments)}",
+        f"Tracked per-list product instances created: {tracked_instance_count}",
         f"List extraction cache schema: {LIST_CACHE_SCHEMA} (strict product-card DOM extraction)",
         "",
         f"PUBLIC FEED: {PUBLIC / 'meta_catalog.csv'}",
