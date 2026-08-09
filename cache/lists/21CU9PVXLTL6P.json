@@ -1,15 +1,11 @@
 {
   "list_id": "21CU9PVXLTL6P",
+  "cache_schema": 3,
   "title": "SHOP The Hillary Style",
   "asins": [
-    "B017PCGAXQ",
-    "B07PBXXNCY",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
+    "B084KP3NG6",
     "B0D8TXNYRP",
     "B0D8TZG3LY",
-    "B0D9ST99T5",
     "B0DGB17XTF",
     "B0DGB47QTP",
     "B0DGB8M65X",
@@ -87,13 +83,10 @@
     "B0DSJZQSVP",
     "B0DSK1D66X",
     "B0DT2GGYDD",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FL4RQG6M",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R",
+    "B0FL4RQG6M"
   ],
   "displayed_count": 153,
-  "scraped_at": "2026-08-05T22:54:31-07:00",
-  "product_hash": "dbde9aa824abe08dbf3e445fc24d1d9ff5a514cefcb4a96f88d01f58f0b4564a"
+  "scraped_at": "2026-08-08T21:10:10-07:00",
+  "product_hash": "4362aa04c55e438c49b791cc79a67798c0b7633a303b2fff2dfb25997ff65ac0"
 }

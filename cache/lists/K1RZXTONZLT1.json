@@ -1,10 +1,10 @@
 {
   "list_id": "K1RZXTONZLT1",
+  "cache_schema": 3,
   "title": "VANITY Must-Haves",
   "asins": [
-    "B017PCGAXQ",
     "B07H52SVM7",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B08VGRY6MD",
     "B092ZT13S6",
     "B0935NHG1Q",
@@ -16,13 +16,9 @@
     "B0C818VBL4",
     "B0C8THCCFQ",
     "B0CD2SBGJV",
-    "B0CFYMNJW4",
     "B0CGLN3DQF",
     "B0CQ2898K7",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
     "B0D4F9D79T",
-    "B0D9ST99T5",
     "B0DBHW3TJP",
     "B0DGZK6DRT",
     "B0DHW4JZTX",
@@ -31,12 +27,9 @@
     "B0DMVKVVG3",
     "B0DNY1GNW4",
     "B0DVBHY1XF",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 24,
-  "scraped_at": "2026-08-05T23:03:18-07:00",
-  "product_hash": "17e7e0e052392182db683439face338b76491d936afe4d349088c3890f595d29"
+  "scraped_at": "2026-08-08T21:19:39-07:00",
+  "product_hash": "999f08d16d1f35cb85d9060b86ad708b211239d9213265098524cfdcd9604a5a"
 }

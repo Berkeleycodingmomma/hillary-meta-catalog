@@ -1,8 +1,8 @@
 {
   "list_id": "28Z72BVY6B71P",
+  "cache_schema": 3,
   "title": "LAMPS",
   "asins": [
-    "B017PCGAXQ",
     "B01GW7BZ6M",
     "B071ZLXDT7",
     "B074ZNLY8F",
@@ -12,7 +12,6 @@
     "B07K1W7RFS",
     "B07NHBXJ1Z",
     "B07NSFG924",
-    "B07PBXXNCY",
     "B07QPRPM86",
     "B07VDGDTHB",
     "B07WVW8GMY",
@@ -24,6 +23,7 @@
     "B081BJ7W2D",
     "B08215GC3H",
     "B082BB1PK6",
+    "B084KP3NG6",
     "B0869LKSQ5",
     "B086X6362X",
     "B089QR9252",
@@ -74,25 +74,18 @@
     "B0BXFS3HW9",
     "B0BYJFTM9K",
     "B0CDH1QWKF",
-    "B0CFYMNJW4",
     "B0CJCN2QFZ",
     "B0CKWKW2Q1",
     "B0CL4NMYNQ",
     "B0CLTLFXDC",
     "B0CLVH74HZ",
-    "B0CQRFSX1F",
     "B0CTK95WTM",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
     "B0D9ZWX9YV",
     "B0DH9D2ZD2",
     "B0DJQ39LKB",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 123,
-  "scraped_at": "2026-08-05T22:45:03-07:00",
-  "product_hash": "e1e367aa8d89bcb84466f85eb80b9cccc0095f4e09eb66148f3cd6ccc35ee59f"
+  "scraped_at": "2026-08-08T20:59:18-07:00",
+  "product_hash": "f363115215eef3ad7be1db510d2e7f415840fe33fd69e722d4c96d4fb999181c"
 }

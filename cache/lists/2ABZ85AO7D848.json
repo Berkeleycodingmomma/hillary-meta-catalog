@@ -1,26 +1,19 @@
 {
   "list_id": "2ABZ85AO7D848",
+  "cache_schema": 3,
   "title": "Furniture Mover REEL",
   "asins": [
-    "B017PCGAXQ",
     "B07J54B1NY",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B09YDLJ6R6",
-    "B0CFYMNJW4",
     "B0CHP621NB",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
     "B0DCZ7WCJW",
     "B0DHYHGJHX",
     "B0DJHJD3P4",
     "B0DNV4PSTC",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 7,
-  "scraped_at": "2026-08-05T22:36:13-07:00",
-  "product_hash": "16b96a2265bfbddd0834f69ae9a15b7367a93031cf1683b84a5ef5332e13a9ac"
+  "scraped_at": "2026-08-08T20:49:42-07:00",
+  "product_hash": "643e4587e093479ef7d57cba576057da9d887abe303ccbe6b2fd6e4afd726bfd"
 }

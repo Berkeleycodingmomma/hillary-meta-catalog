@@ -1,16 +1,16 @@
 {
   "list_id": "1DXRHB098MRMA",
+  "cache_schema": 3,
   "title": "JOCELYN'S Space",
   "asins": [
     "B00GDJLLUA",
     "B00QANWYGO",
     "B011U1LIK8",
-    "B017PCGAXQ",
     "B07FRF619W",
     "B07LC64H8Z",
-    "B07PBXXNCY",
     "B07PCQKTCN",
     "B083TRZ71G",
+    "B084KP3NG6",
     "B08PV56H4Q",
     "B09KLV417B",
     "B0BDND45FW",
@@ -18,24 +18,17 @@
     "B0BMYYWC5Z",
     "B0BP71XHBF",
     "B0C1JFG7QV",
-    "B0CFYMNJW4",
     "B0CGKZDCB3",
     "B0CHRDR5P1",
     "B0CJRC57DZ",
     "B0CLLCDRTS",
     "B0CN9DBLKJ",
     "B0CNPNDYKV",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
     "B0DMVJ6PTF",
     "B0DNG4V7X3",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 23,
-  "scraped_at": "2026-08-05T22:42:14-07:00",
-  "product_hash": "d66d13a8f1375f18b5546c3edcf45a65c218d7e1cf762a7020f279d20a1894cc"
+  "scraped_at": "2026-08-08T20:56:08-07:00",
+  "product_hash": "be5082e21b46d2a34e1dc8434aed0c06f834352a455b8fc03b28aecf22ff753a"
 }

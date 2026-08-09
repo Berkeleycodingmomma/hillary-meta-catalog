@@ -1,18 +1,18 @@
 {
   "list_id": "270Y6RLSPP10V",
+  "cache_schema": 3,
   "title": "Outdoor PLANTERS",
   "asins": [
     "B00HSDTQY8",
     "B00RHZ877E",
     "B00RHZ8B7K",
     "B0155WHPQE",
-    "B017PCGAXQ",
     "B01BGBADVM",
     "B01BGBAJF2",
     "B01MQPV8TE",
-    "B07PBXXNCY",
     "B07QNPJJ2R",
     "B07Z52HNG3",
+    "B084KP3NG6",
     "B084ZQVQD8",
     "B084ZQXJ9H",
     "B084ZR12BX",
@@ -42,23 +42,16 @@
     "B0C5JSJ7HK",
     "B0C66CFL7D",
     "B0C8KRDV12",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
     "B0CSQZN5FZ",
     "B0CYLZH1XW",
     "B0CYLZP3YG",
     "B0CZ9P5FCQ",
-    "B0D1XLXSSY",
     "B0D89Y7JXY",
     "B0D9JTX75D",
-    "B0D9ST99T5",
     "B0DQDRJ1YX",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 45,
-  "scraped_at": "2026-08-05T22:51:08-07:00",
-  "product_hash": "4d956cdb4041150da106f6b9ce695b3cb5936ce4ddbda59e39a7fe596db8436d"
+  "scraped_at": "2026-08-08T21:06:22-07:00",
+  "product_hash": "07780a7ffd1fca49dc8068ed474ce308422c51e215dbef4024413bb6c698550b"
 }

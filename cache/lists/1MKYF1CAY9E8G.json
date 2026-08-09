@@ -1,5 +1,6 @@
 {
   "list_id": "1MKYF1CAY9E8G",
+  "cache_schema": 3,
   "title": "PANTRY Organization",
   "asins": [
     "0525577076",
@@ -7,8 +8,7 @@
     "0593796977",
     "B002WJI52W",
     "B004O2K7GW",
-    "B017PCGAXQ",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B0899TRSLM",
     "B08NCN3MZ9",
     "B08Z79GJQD",
@@ -20,19 +20,12 @@
     "B0BDXLC9MS",
     "B0BN35LN44",
     "B0C869CMKD",
-    "B0CFYMNJW4",
     "B0CGCKRKDR",
-    "B0CQRFSX1F",
     "B0CQRND39T",
     "B0CZ2XXV6G",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 19,
-  "scraped_at": "2026-08-05T22:51:32-07:00",
-  "product_hash": "7539cfcd199f3891eb4912c41f754d67ba04554ddad7de8ddc9b09d71fe58620"
+  "scraped_at": "2026-08-08T21:06:59-07:00",
+  "product_hash": "c00aa438e6101eb6218e671a390cdd656092e6d267cac305286d57658b1dc253"
 }

@@ -1,9 +1,9 @@
 {
   "list_id": "31R6EZ6S1ERJH",
+  "cache_schema": 3,
   "title": "FRONT PORCH",
   "asins": [
-    "B017PCGAXQ",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B08LZ857SF",
     "B098NCF1W2",
     "B09JBZ13W2",
@@ -16,17 +16,10 @@
     "B0C3Z3VMCF",
     "B0C4DFPB1K",
     "B0C5SYHFQ4",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
     "B0CXSJF55Z",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 13,
-  "scraped_at": "2026-08-05T22:36:07-07:00",
-  "product_hash": "b0e72c0f8e5e5e675a35eb15107bed05896f54e05c4002374596a2c94bf6e2d4"
+  "scraped_at": "2026-08-08T20:49:36-07:00",
+  "product_hash": "912e456b5eb1e0156331c3a253198255b9e84a92faee7605b3c063f8799855e6"
 }

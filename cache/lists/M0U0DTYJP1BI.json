@@ -1,19 +1,19 @@
 {
   "list_id": "M0U0DTYJP1BI",
+  "cache_schema": 3,
   "title": "ENTRYWAY. FOYER.",
   "asins": [
-    "B017PCGAXQ",
     "B01CGGXTM6",
     "B01MEEEABB",
     "B01N5RE1SO",
     "B07CZDSDC2",
-    "B07PBXXNCY",
     "B07R3HFQP5",
     "B07W5K84SW",
     "B07YDKVYLH",
     "B07YYT6XGM",
     "B0815J4NTV",
     "B0815JGGBX",
+    "B084KP3NG6",
     "B087VWNN4F",
     "B08LQXMNRL",
     "B08V55MSB2",
@@ -32,18 +32,11 @@
     "B0BDL7Q6KG",
     "B0BV3V1TK8",
     "B0C7HNMJWQ",
-    "B0CFYMNJW4",
     "B0CK8NJV3T",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
     "B0D37Q645W",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 32,
-  "scraped_at": "2026-08-05T22:33:32-07:00",
-  "product_hash": "def4f1bb003c7cc26df22a3e10f566d78f6518dae1ccf89fb76b49b876be2b8a"
+  "scraped_at": "2026-08-08T20:46:38-07:00",
+  "product_hash": "cd19a33d7d1e14106da33cc8ed45bf25c982add90ea88a13f5df39d605521082"
 }

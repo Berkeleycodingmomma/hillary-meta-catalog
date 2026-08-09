@@ -1,13 +1,14 @@
 {
   "list_id": "3HBHLKKIJRXAQ",
+  "cache_schema": 3,
   "title": "FRIDGE Organization",
   "asins": [
     "B000MWTI0O",
-    "B017PCGAXQ",
     "B07HJFXHKV",
-    "B07PBXXNCY",
     "B07XYMY7Q3",
+    "B084KP3NG6",
     "B08DJ7T5K6",
+    "B08ZK5WDWN",
     "B09LCTBVWF",
     "B09PMHDLW1",
     "B09R196Z7F",
@@ -27,25 +28,18 @@
     "B0C8MK5B31",
     "B0CBTVNMF9",
     "B0CDKF8XPD",
-    "B0CFYMNJW4",
     "B0CG4S65ZJ",
     "B0CJYBVB9T",
     "B0CKW762JQ",
     "B0CLLPQH54",
-    "B0CQRFSX1F",
     "B0CRQBVXL7",
     "B0CWLBNHJL",
     "B0CYLMNWVS",
-    "B0D1XLXSSY",
     "B0D8KH4L2G",
     "B0D9QBSDGW",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 33,
-  "scraped_at": "2026-08-05T22:36:05-07:00",
-  "product_hash": "0a78e272b759d99fe81737b00d4f1ae7c9710fd19e7c2195cffb1222772bf869"
+  "scraped_at": "2026-08-08T20:49:34-07:00",
+  "product_hash": "0aaceb06de805c063d080c5b12c8a41d11dafb5b1d54e47d382086832b3b22c2"
 }

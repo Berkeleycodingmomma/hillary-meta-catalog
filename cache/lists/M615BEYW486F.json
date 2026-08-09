@@ -1,9 +1,9 @@
 {
   "list_id": "M615BEYW486F",
+  "cache_schema": 3,
   "title": "Home UPGRADES",
   "asins": [
-    "B017PCGAXQ",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B08WHGKYDC",
     "B08WHLJ5G1",
     "B08ZJSSG4D",
@@ -14,24 +14,17 @@
     "B08ZMGDNRS",
     "B09D7N3P51",
     "B09D8QQKDR",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
     "B0CV9JNFM4",
     "B0CV9K9BR7",
     "B0CVS9BFH4",
     "B0CWK1Q5F4",
-    "B0D1XLXSSY",
     "B0D57W99Y8",
     "B0D7QTB1VH",
-    "B0D9ST99T5",
     "B0DFDWVRJJ",
     "B0DFF7ZXDZ",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 19,
-  "scraped_at": "2026-08-05T22:41:36-07:00",
-  "product_hash": "479be2d9076077b60ccb69781fbeb7b0f3adb40333fedf90db3e25118df5f529"
+  "scraped_at": "2026-08-08T20:55:11-07:00",
+  "product_hash": "0f83e8857c899c24dbb1c2abd69f5c42b52a104b3e719cc5c65f997588da939a"
 }

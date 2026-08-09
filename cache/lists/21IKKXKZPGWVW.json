@@ -1,26 +1,19 @@
 {
   "list_id": "21IKKXKZPGWVW",
+  "cache_schema": 3,
   "title": "OUR Rental",
   "asins": [
-    "B017PCGAXQ",
-    "B07PBXXNCY",
     "B082133H1B",
+    "B084KP3NG6",
     "B084ZQLRDN",
     "B088FW6B9T",
     "B09J3MSV31",
     "B0BN3T5ZR4",
-    "B0CFYMNJW4",
     "B0CNVSQK31",
-    "B0CQRFSX1F",
     "B0CRLXZN9Y",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 7,
-  "scraped_at": "2026-08-05T22:50:40-07:00",
-  "product_hash": "67a58ee125953b40e1a30bdf24af85952571fca1eb4ff0148b74a23369565d2d"
+  "scraped_at": "2026-08-08T21:05:46-07:00",
+  "product_hash": "c32e8268766b0f790533e7dba59eb5fb268f9cbd218885e73ca595514e289f9c"
 }

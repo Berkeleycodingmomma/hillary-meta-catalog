@@ -1,18 +1,18 @@
 {
   "list_id": "1R4YIGU257W50",
+  "cache_schema": 3,
   "title": "CLOSET Organizing",
   "asins": [
     "B00SKADX1U",
-    "B017PCGAXQ",
     "B01N0DDKL7",
     "B07C772YD7",
     "B07H325M4G",
     "B07P48TN7G",
-    "B07PBXXNCY",
     "B07XXFZ3DG",
     "B0821TFVXK",
     "B083QPZTWD",
     "B083QQB55Q",
+    "B084KP3NG6",
     "B086SPVS7S",
     "B08FYN2L7B",
     "B08G4R4PJP",
@@ -45,7 +45,6 @@
     "B0C8RH9L3X",
     "B0CB8FFKX6",
     "B0CBM5QY1T",
-    "B0CFYMNJW4",
     "B0CG9862PD",
     "B0CGJHKF34",
     "B0CGJJJC4M",
@@ -59,21 +58,15 @@
     "B0CP3NDSQ4",
     "B0CP4CM7NL",
     "B0CPPHDVDJ",
-    "B0CQRFSX1F",
     "B0CWGXXCZS",
     "B0CWNXLFYJ",
     "B0CWNYJR36",
     "B0CXQ6GPYG",
     "B0CZL9R25L",
     "B0D1TXJB2C",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 60,
-  "scraped_at": "2026-08-05T22:29:16-07:00",
-  "product_hash": "aa51910fe340e11b1cbefbd7cf35c88da95a98e3061e36f8138b33d35f1dee77"
+  "scraped_at": "2026-08-08T20:42:50-07:00",
+  "product_hash": "515068f45d149d70be52a2a5f02f2541c800ff9235d314d450ab1231f180ce47"
 }

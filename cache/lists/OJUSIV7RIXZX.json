@@ -1,12 +1,12 @@
 {
   "list_id": "OJUSIV7RIXZX",
+  "cache_schema": 3,
   "title": "GIFTS UNDER $25",
   "asins": [
     "0525577076",
     "1984823914",
     "B0000VLPAS",
     "B0017T6R8C",
-    "B017PCGAXQ",
     "B01MU15Q9J",
     "B01NBALTZT",
     "B06Y2YRKQ2",
@@ -23,7 +23,6 @@
     "B07H87HJG8",
     "B07ML324GG",
     "B07NC8BZJB",
-    "B07PBXXNCY",
     "B07Q2SKH9V",
     "B07R7RBRSM",
     "B07RXJ6DDG",
@@ -37,6 +36,7 @@
     "B082VJS1T1",
     "B082VL8NR7",
     "B082ZC351S",
+    "B084KP3NG6",
     "B084LN66XD",
     "B084LNK64Y",
     "B085ZZT4NG",
@@ -75,23 +75,16 @@
     "B0BW4TG3QX",
     "B0C2N946GR",
     "B0C65DBXJ5",
-    "B0CFYMNJW4",
     "B0CGV8WG19",
     "B0CKTW6XY2",
     "B0CLLJ94ZK",
     "B0CP9Z16VD",
-    "B0CQRFSX1F",
     "B0CZ9DDMKP",
-    "B0D1XLXSSY",
     "B0D5K2ZZ6Z",
-    "B0D9ST99T5",
-    "B0F637QK1P",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R",
+    "B0F637QK1P"
   ],
   "displayed_count": 93,
-  "scraped_at": "2026-08-05T22:37:02-07:00",
-  "product_hash": "db0c2f8adf848b23bd4287edb601788b7e8c2c458a0ad500517e0aa523e98f5f"
+  "scraped_at": "2026-08-08T20:50:35-07:00",
+  "product_hash": "d89f9831ada4a78177d675679d040a3059b755d55d8153efc297d61221b8b18a"
 }

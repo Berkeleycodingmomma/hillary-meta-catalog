@@ -1,5 +1,6 @@
 {
   "list_id": "3VBGW6RI08DIE",
+  "cache_schema": 3,
   "title": "HAIR CARE",
   "asins": [
     "B0009V1YR8",
@@ -11,14 +12,13 @@
     "B00BIGARH6",
     "B00ER4SYYY",
     "B00VUJUFTG",
-    "B017PCGAXQ",
     "B01LVY0G0Y",
     "B07CJF1D7X",
     "B07CJF6J6M",
     "B07HF88NWJ",
     "B07P5D1GPL",
-    "B07PBXXNCY",
     "B07ZBNWG1L",
+    "B084KP3NG6",
     "B0872ZZVTC",
     "B0895K6LG7",
     "B08H786R4B",
@@ -31,20 +31,13 @@
     "B0BRXNYX74",
     "B0BSLX4GRT",
     "B0BVC256Q1",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
     "B0CWGQ8CM3",
-    "B0D1XLXSSY",
     "B0D38G15MN",
     "B0D6VFMZTK",
-    "B0D9ST99T5",
     "B0DS6LGD91",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 31,
-  "scraped_at": "2026-08-05T22:37:29-07:00",
-  "product_hash": "8f23ede7ca5c9e537af52a127c7bd45add3a40debd18896faaaf6d5e9aeb5b68"
+  "scraped_at": "2026-08-08T20:51:06-07:00",
+  "product_hash": "cb2d17ff6aa8930d19672d2541a8f38b2b9d70830f03f0bdc588668b4bb8b2a5"
 }

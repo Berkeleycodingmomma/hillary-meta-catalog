@@ -1,11 +1,11 @@
 {
   "list_id": "2969EJ7F6BLI8",
+  "cache_schema": 3,
   "title": "NIGHTSTAND Essentials",
   "asins": [
-    "B017PCGAXQ",
     "B01B6NOWTO",
     "B07MNB88TR",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B08CRDNJCQ",
     "B08CXXTGTW",
     "B08NHFJB13",
@@ -15,22 +15,15 @@
     "B0C6F4615T",
     "B0CCTJGZD5",
     "B0CD74YM5P",
-    "B0CFYMNJW4",
     "B0CGVF27RR",
     "B0CLLCDRTS",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
     "B0D48W25CH",
-    "B0D9ST99T5",
     "B0DK2GW7WP",
     "B0DK2J5V7Q",
     "B0DKFQMYBV",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 17,
-  "scraped_at": "2026-08-05T22:49:47-07:00",
-  "product_hash": "3224a808d77c08d58bb0c730052fbb1f2c5371dc8e7d2b563c3e5a5567160e11"
+  "scraped_at": "2026-08-08T21:04:45-07:00",
+  "product_hash": "4634691d1339224ae84840841f805faf4540378f65efc2d2370ccb9c23daa181"
 }

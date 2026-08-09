@@ -1,15 +1,14 @@
 {
   "list_id": "1OH1TVBZ3L337",
+  "cache_schema": 3,
   "title": "LAST MINUTE GIFTS",
   "asins": [
     "B00325D0WK",
-    "B017PCGAXQ",
     "B01MEGZ3W6",
     "B07GC1PR8J",
     "B07HKQ6YGX",
     "B07MWSRJ89",
     "B07PBN3RXF",
-    "B07PBXXNCY",
     "B07TJ95CBM",
     "B07VYC6156",
     "B07W4MHWVV",
@@ -18,6 +17,7 @@
     "B07ZZG8DH7",
     "B0834JQ4RF",
     "B083L8RNJR",
+    "B084KP3NG6",
     "B087D55WK2",
     "B08B8YRV67",
     "B08BYJ8KSR",
@@ -50,7 +50,6 @@
     "B0C89RB991",
     "B0C9ZDW4Q8",
     "B0CDNT3PH2",
-    "B0CFYMNJW4",
     "B0CGHWSDHX",
     "B0CGX538DK",
     "B0CGXD3Q9X",
@@ -62,11 +61,9 @@
     "B0CKZK6LP4",
     "B0CLBTLW5D",
     "B0CP9Z16VD",
-    "B0CQRFSX1F",
     "B0CQX4T4LQ",
     "B0CSK7RM5C",
     "B0CT3P12J7",
-    "B0D1XLXSSY",
     "B0D3WLSVP6",
     "B0D4STT6C2",
     "B0D5FG87DJ",
@@ -75,7 +72,6 @@
     "B0D7MMD134",
     "B0D7X5X3QF",
     "B0D9QD13S2",
-    "B0D9ST99T5",
     "B0DB47R353",
     "B0DB617MJ9",
     "B0DBLW18PD",
@@ -85,12 +81,9 @@
     "B0DGJCTKXF",
     "B0DJ3MB5C6",
     "B0DJVC92S8",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 192,
-  "scraped_at": "2026-08-05T22:45:25-07:00",
-  "product_hash": "940105b4c82b20099003925a6cc85044f850512d20e6d04789e0848bbecf4166"
+  "scraped_at": "2026-08-08T20:59:45-07:00",
+  "product_hash": "9c6e68c66e76b8a2d3bc85ccef29365a7c453a1b22facc3ff924345a509b61e1"
 }

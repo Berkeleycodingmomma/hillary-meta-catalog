@@ -1,10 +1,10 @@
 {
   "list_id": "34VIWGR89GOO8",
+  "cache_schema": 3,
   "title": "SOFAS. ACCENT CHAIRS. OTTOMANS.",
   "asins": [
-    "B017PCGAXQ",
     "B073HLJ1G3",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B09DDHN7V1",
     "B09DFPLJG3",
     "B09DPLPHLQ",
@@ -38,7 +38,6 @@
     "B0CCX5MCBJ",
     "B0CDWS3291",
     "B0CF3Y2MTT",
-    "B0CFYMNJW4",
     "B0CGHZ3ZXZ",
     "B0CK8MDV67",
     "B0CK8N43NB",
@@ -50,7 +49,6 @@
     "B0CNVSQK31",
     "B0CPDFZ7RS",
     "B0CQ9KT429",
-    "B0CQRFSX1F",
     "B0CQRG62JM",
     "B0CRTVGD8S",
     "B0CT6CPRZ7",
@@ -64,12 +62,10 @@
     "B0CXHJCR67",
     "B0CXXMZ6HL",
     "B0CXXVXJBZ",
-    "B0D1XLXSSY",
     "B0D2HRM3LL",
     "B0D2VT6J6T",
     "B0D4755QGJ",
     "B0D9BPN5H8",
-    "B0D9ST99T5",
     "B0DBL9MJRM",
     "B0DCZ2SXRQ",
     "B0DG248R59",
@@ -82,13 +78,10 @@
     "B0DNP1789B",
     "B0DR3B4FRR",
     "B0DTHYDBWF",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FH27CCV4",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R",
+    "B0FH27CCV4"
   ],
   "displayed_count": 393,
-  "scraped_at": "2026-08-05T22:55:09-07:00",
-  "product_hash": "dc45c93290d1c23c18c8e2428cefcac4378cb78418aba6baca4c09bcfc452fa5"
+  "scraped_at": "2026-08-08T21:10:59-07:00",
+  "product_hash": "3376ac81ba3fcae12e727b25d6e39a00fbfd0ce5f0a4e9400e40b0df9576dffd"
 }

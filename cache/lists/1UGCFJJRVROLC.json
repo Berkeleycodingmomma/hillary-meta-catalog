@@ -1,12 +1,12 @@
 {
   "list_id": "1UGCFJJRVROLC",
+  "cache_schema": 3,
   "title": "Amazon Furniture in Our Home",
   "asins": [
-    "B017PCGAXQ",
     "B01IQDWKR8",
     "B06X9MNV1M",
     "B07FRF619W",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B084ZQLRDN",
     "B085RS35SR",
     "B09986F9GF",
@@ -19,21 +19,14 @@
     "B0BYK5FKR4",
     "B0C9VZ6V19",
     "B0C9W3W4LG",
-    "B0CFYMNJW4",
     "B0CLLCDRTS",
     "B0CMJSNMFM",
-    "B0CQRFSX1F",
     "B0CQZ79MWM",
-    "B0D1XLXSSY",
     "B0D6R7W4MB",
-    "B0D9ST99T5",
     "B0DHYGLTQH",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 20,
-  "scraped_at": "2026-08-05T22:22:07-07:00",
-  "product_hash": "b17aa2e4569668087ba2495c7d5cea614ab888b3b729f6b44791ff5c3e95589c"
+  "scraped_at": "2026-08-08T20:34:59-07:00",
+  "product_hash": "058dc0faaef468433c40e37bda8cd567c3af6ca3e82e379e50a7f4bb34b02979"
 }

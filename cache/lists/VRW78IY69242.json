@@ -1,28 +1,25 @@
 {
   "list_id": "VRW78IY69242",
+  "cache_schema": 3,
   "title": "FAUX INDOOR/OUTDOOR",
   "asins": [
-    "B017PCGAXQ",
-    "B07PBXXNCY",
     "B082DT45JG",
+    "B084KP3NG6",
     "B09JGDKHKN",
     "B0B1HNJC5Y",
     "B0B9MPY9T7",
     "B0BN895XGB",
     "B0BN897HKF",
     "B0CD7T57FK",
-    "B0CFYMNJW4",
     "B0CGRJM6NM",
     "B0CGTNC8H4",
     "B0CL7791VG",
     "B0CPM3QY86",
-    "B0CQRFSX1F",
     "B0CXDVBKMP",
     "B0CYC4NR5V",
     "B0CYLZH1XW",
     "B0CYLZP3YG",
     "B0D1Q4Q1ZR",
-    "B0D1XLXSSY",
     "B0D4V74RBX",
     "B0D631JPNJ",
     "B0D6FZ4YF2",
@@ -33,12 +30,9 @@
     "B0D9ST99T5",
     "B0DSGNYJ81",
     "B0DT5QPH46",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 26,
-  "scraped_at": "2026-08-05T22:34:17-07:00",
-  "product_hash": "5437bbc0668dfd7b9bfe80707d48f9e21f413b2da0ca78c740c1988f5ec22eae"
+  "scraped_at": "2026-08-08T20:47:19-07:00",
+  "product_hash": "c03e2948c0ef9a9db242bd6bdbdc5a92ee1d91c45024d3be86d4abd18ff23a5b"
 }

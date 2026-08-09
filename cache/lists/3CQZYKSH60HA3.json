@@ -1,11 +1,11 @@
 {
   "list_id": "3CQZYKSH60HA3",
+  "cache_schema": 3,
   "title": "BOY'S Bathroom",
   "asins": [
-    "B017PCGAXQ",
     "B07LD69XYT",
     "B07MSF3LMX",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B08G1G8Y1Q",
     "B08LJQ3DW5",
     "B08XJN92PB",
@@ -20,19 +20,12 @@
     "B0BNF9WFPY",
     "B0C994176Z",
     "B0CF8M7DXR",
-    "B0CFYMNJW4",
     "B0CHS79392",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
     "B0D25WFQN9",
     "B0D72CPBZS",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 19,
-  "scraped_at": "2026-08-05T22:27:23-07:00",
-  "product_hash": "9b2cad997d02ab44a6ebb82e3a331891a935ab6ea7be614aa2eb45127b7e8e5e"
+  "scraped_at": "2026-08-08T20:40:54-07:00",
+  "product_hash": "8a130fe8dcc2d6b2e1190192f81171e24f001d8ca5c028d2126269ddfcd71530"
 }

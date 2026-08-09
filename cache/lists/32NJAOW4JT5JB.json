@@ -1,15 +1,11 @@
 {
   "list_id": "32NJAOW4JT5JB",
+  "cache_schema": 3,
   "title": "CYBER HOLIDAY",
   "asins": [
-    "B017PCGAXQ",
-    "B07PBXXNCY",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
+    "B084KP3NG6",
     "B0D9HYD43G",
     "B0D9J7LDV7",
-    "B0D9ST99T5",
     "B0DGB8M65X",
     "B0DJV8KNFS",
     "B0DJV98RYQ",
@@ -45,9 +41,7 @@
     "B0DPLD3MX5",
     "B0DPXM82Y7",
     "B0DSCLR1T6",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
+    "B0DVBL912R",
     "B0FQFYSH7T",
     "B0FQRKL794",
     "B0FQXQ89SP",
@@ -74,10 +68,9 @@
     "B0FWTF9BYH",
     "B0FWTGBDWW",
     "B0FWTMZXWG",
-    "B0G269LFKD",
-    "B0G8F7DJPP"
+    "B0G269LFKD"
   ],
   "displayed_count": 64,
-  "scraped_at": "2026-08-05T22:30:28-07:00",
-  "product_hash": "e189e0860c66b18c2aaccc2d3fa715f1fbc43efa392d58b1a9dd9be105c6883d"
+  "scraped_at": "2026-08-08T20:44:08-07:00",
+  "product_hash": "a7ade9f18d4e88d27ff7d4419601e5ea4997b0162e3c6051a242ed13cd1c62d7"
 }

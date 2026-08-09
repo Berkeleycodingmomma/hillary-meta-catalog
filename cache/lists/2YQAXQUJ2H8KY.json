@@ -1,8 +1,8 @@
 {
   "list_id": "2YQAXQUJ2H8KY",
+  "cache_schema": 3,
   "title": "VASES. TRAYS. BOXES.",
   "asins": [
-    "B017PCGAXQ",
     "B01CJSEYY8",
     "B01M3RIX4D",
     "B01M6YG6EW",
@@ -10,8 +10,8 @@
     "B078N8DGDC",
     "B07K1V7SDR",
     "B07N6J7L7Q",
-    "B07PBXXNCY",
     "B082XVVMGR",
+    "B084KP3NG6",
     "B084ZR49VY",
     "B0851R64S8",
     "B08BTRZHSY",
@@ -32,7 +32,6 @@
     "B0C23R2N7V",
     "B0C487BM6F",
     "B0C64J8WXZ",
-    "B0CFYMNJW4",
     "B0CG6SYX61",
     "B0CGRFHVBJ",
     "B0CGY17ZHG",
@@ -40,18 +39,15 @@
     "B0CJM2SGJ3",
     "B0CP7JPXKR",
     "B0CQJ5SBZ2",
-    "B0CQRFSX1F",
     "B0CT3P12J7",
     "B0CVV5TS94",
     "B0CW2JG3JN",
     "B0CW2K17ZS",
     "B0D13BPV57",
-    "B0D1XLXSSY",
     "B0D3HH27MW",
     "B0D3TG15CY",
     "B0D8TXNM5X",
     "B0D8TXNYRP",
-    "B0D9ST99T5",
     "B0DGB17XTF",
     "B0DGB8M65X",
     "B0DJHGKC9T",
@@ -87,12 +83,9 @@
     "B0DNG4V7X3",
     "B0DNRRGMTR",
     "B0DNY1GNW4",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 84,
-  "scraped_at": "2026-08-05T23:03:34-07:00",
-  "product_hash": "48a3a5c78f4eaa222af37ac1780c60f6264861b1064165a51ac9f26ffa2b832a"
+  "scraped_at": "2026-08-08T21:20:11-07:00",
+  "product_hash": "3d5d26d81c8afcfcd3332188303031abbce7fa8b10be7adac2aa58f076469efd"
 }

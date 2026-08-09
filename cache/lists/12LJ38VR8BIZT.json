@@ -1,12 +1,12 @@
 {
   "list_id": "12LJ38VR8BIZT",
+  "cache_schema": 3,
   "title": "MY Holiday Styling List",
   "asins": [
-    "B017PCGAXQ",
     "B07FJMB85K",
-    "B07PBXXNCY",
     "B07T4X1J1J",
     "B07YHNXMS8",
+    "B084KP3NG6",
     "B08MJ6GNVM",
     "B08ZYS34GW",
     "B09PMHPRDP",
@@ -14,12 +14,8 @@
     "B0BYDQHVM6",
     "B0CBBZ4NGX",
     "B0CC1RKWBC",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
     "B0D9HYD43G",
     "B0D9J7LDV7",
-    "B0D9ST99T5",
     "B0DJHJD3P4",
     "B0DJV98RYQ",
     "B0DJWLMJ33",
@@ -30,12 +26,9 @@
     "B0DNV4PSTC",
     "B0DNXXRC1X",
     "B0DQB91Q2X",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 22,
-  "scraped_at": "2026-08-05T22:48:41-07:00",
-  "product_hash": "78d9dacbbd2dc000c33c0ff886d599ce4cbd745cb1561aa263d315272fe1b863"
+  "scraped_at": "2026-08-08T21:03:13-07:00",
+  "product_hash": "f9ae871627decabdf0d20537a75a721341e15eddd324f5fb302507c2224a4c24"
 }

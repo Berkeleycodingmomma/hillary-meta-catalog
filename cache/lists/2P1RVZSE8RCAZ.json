@@ -1,11 +1,11 @@
 {
   "list_id": "2P1RVZSE8RCAZ",
+  "cache_schema": 3,
   "title": "NO DRILL Home Improvement",
   "asins": [
-    "B017PCGAXQ",
     "B07LH1DR5F",
-    "B07PBXXNCY",
     "B07R8VW2CT",
+    "B084KP3NG6",
     "B087CYNFX2",
     "B08DHGV466",
     "B08Z42WT3S",
@@ -24,18 +24,11 @@
     "B0BVQ65WXT",
     "B0BW62YBKG",
     "B0BZZF3SZM",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
     "B0CZRNH6WW",
-    "B0D1XLXSSY",
     "B0D5DB2DNS",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 22,
-  "scraped_at": "2026-08-05T22:49:49-07:00",
-  "product_hash": "16134e06d1ddf134755f05c190c1ba4876b6736642f21e9f3a2f8c99ab1b4d54"
+  "scraped_at": "2026-08-08T21:04:47-07:00",
+  "product_hash": "28b22d5641bf4c4ab9accadca1c7b6eaae00abd7b39b077e75b6873f12dffe86"
 }

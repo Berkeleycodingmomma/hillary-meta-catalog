@@ -1,11 +1,11 @@
 {
   "list_id": "2V9Q1BLJC4BNW",
+  "cache_schema": 3,
   "title": "FURNITURE In Our Home",
   "asins": [
     "B0151PJL76",
-    "B017PCGAXQ",
     "B07665XKNS",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B09BDGTBW2",
     "B09LDJ6XKX",
     "B0BJ4FHV52",
@@ -15,20 +15,13 @@
     "B0C1JFG7QV",
     "B0C4P4VBM6",
     "B0C9SNYCS7",
-    "B0CFYMNJW4",
     "B0CLLCDRTS",
     "B0CM8BMZPR",
     "B0CN6G3LRT",
     "B0CNPNDYKV",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 15,
-  "scraped_at": "2026-08-05T22:36:10-07:00",
-  "product_hash": "76dd4430056deefccfade67da226454e5e894823bde2deffe9c8155542f68dc4"
+  "scraped_at": "2026-08-08T20:49:39-07:00",
+  "product_hash": "b02cf7fdca90c016d78262f1f6281df8ec619235461243165fd9115d28b8b49e"
 }

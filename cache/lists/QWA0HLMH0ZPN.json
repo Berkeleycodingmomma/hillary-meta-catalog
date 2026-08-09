@@ -1,14 +1,14 @@
 {
   "list_id": "QWA0HLMH0ZPN",
+  "cache_schema": 3,
   "title": "BATHROOM REMODEL",
   "asins": [
     "B004O4P5SA",
-    "B017PCGAXQ",
-    "B07PBXXNCY",
     "B07PJ38PJD",
     "B07PRN6DCY",
     "B07SYPQ8LZ",
     "B07TYCJ7MP",
+    "B084KP3NG6",
     "B08J3V6W1V",
     "B08PN3XD6D",
     "B08RXWZS5T",
@@ -29,15 +29,11 @@
     "B0C6CVSFPJ",
     "B0C8SZQ7Y1",
     "B0C8Z5TFX4",
-    "B0CFYMNJW4",
     "B0CG4DW8GX",
     "B0CGKZDCB3",
     "B0CJRC57DZ",
     "B0CQ84F1PQ",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
     "B0D5LKDSZ6",
-    "B0D9ST99T5",
     "B0DK2G268C",
     "B0DK51W9HF",
     "B0DK7NCJJV",
@@ -48,16 +44,13 @@
     "B0DRW8QJ8L",
     "B0DSV2LX55",
     "B0DT473WV2",
+    "B0DVBL912R",
     "B0DVJ3HHDC",
     "B0F4L7KR77",
     "B0F6XXCS94",
-    "B0F7G273NN",
-    "B0F8VMFS12",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0F8VMFS12"
   ],
   "displayed_count": 44,
-  "scraped_at": "2026-08-05T22:24:40-07:00",
-  "product_hash": "915d3e7725fa8ac519c5829760e6f126fec1a3c31dde116d85d0fbdce9d04e63"
+  "scraped_at": "2026-08-08T20:37:51-07:00",
+  "product_hash": "6005c74b42cbebc7fa25953b825053cbcf61a6f9ad007f245efafe29475b587d"
 }

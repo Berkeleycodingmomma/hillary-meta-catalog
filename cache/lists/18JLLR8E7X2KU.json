@@ -1,22 +1,18 @@
 {
   "list_id": "18JLLR8E7X2KU",
+  "cache_schema": 3,
   "title": "MY HOLIDAY Home",
   "asins": [
-    "B017PCGAXQ",
     "B06XR7XTZZ",
     "B07D35W6NL",
     "B07FRF9MDK",
-    "B07PBXXNCY",
+    "B084KP3NG6",
     "B08VWR329F",
     "B0BDM5GHB5",
     "B0BYDQHVM6",
     "B0C5HXCYTM",
-    "B0CFYMNJW4",
     "B0CLTV2TN4",
-    "B0CQRFSX1F",
     "B0CV52NVG5",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
     "B0DFGYP4GH",
     "B0DJHJD3P4",
     "B0DJHKV2RR",
@@ -33,12 +29,10 @@
     "B0DN7JF866",
     "B0DNRG4JV1",
     "B0DP3JP9GJ",
+    "B0DVBL912R",
     "B0F61SPYQV",
-    "B0F7G273NN",
     "B0F93M6K8N",
     "B0FGVJWSMR",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
     "B0FQFYSH7T",
     "B0FQXRMG9M",
     "B0FQXTL2FN",
@@ -54,10 +48,9 @@
     "B0FVTK6DQN",
     "B0FVZDPKWF",
     "B0FWPKWH1M",
-    "B0FWTMZXWG",
-    "B0G8F7DJPP"
+    "B0FWTMZXWG"
   ],
   "displayed_count": 44,
-  "scraped_at": "2026-08-05T22:48:38-07:00",
-  "product_hash": "330f9cc03312216bec622b724231ff0ce788e0a2c1896aa421ff4016596f94f1"
+  "scraped_at": "2026-08-08T21:03:10-07:00",
+  "product_hash": "1819a9032c51474274c0409672e7596fb3a269c1db836b999d6878d307846524"
 }

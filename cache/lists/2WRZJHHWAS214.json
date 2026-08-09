@@ -1,16 +1,18 @@
 {
   "list_id": "2WRZJHHWAS214",
+  "cache_schema": 3,
   "title": "FAUX & DRIED FLORALS",
   "asins": [
-    "B017PCGAXQ",
-    "B07PBXXNCY",
     "B07TLXSW2C",
+    "B084KP3NG6",
     "B0979T13F9",
-    "B0CFYMNJW4",
-    "B0CQRFSX1F",
+    "B09QHQ9ZGV",
+    "B0B4FZ5GDP",
+    "B0B8JC7TDM",
+    "B0BQ2GWB2M",
+    "B0CP3NX4GJ",
     "B0CTLRS61Z",
-    "B0D1XLXSSY",
-    "B0D9ST99T5",
+    "B0D66T6PXK",
     "B0DGB47QTP",
     "B0DGJQRGGC",
     "B0DGV1MVQH",
@@ -40,12 +42,9 @@
     "B0DSCP1244",
     "B0DSGNYJ81",
     "B0DSGP8S17",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 38,
-  "scraped_at": "2026-08-05T22:34:15-07:00",
-  "product_hash": "22bca006434aadd7056fc0a897906d4c4ac8019b687eb0490665b1bc72fb8d8f"
+  "scraped_at": "2026-08-08T20:47:16-07:00",
+  "product_hash": "c465fb45a83f3c4d07ff95237b94b1b89b0dd6e657c0693ae7417c6561c9174a"
 }

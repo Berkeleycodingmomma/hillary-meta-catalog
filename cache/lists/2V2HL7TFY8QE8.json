@@ -1,22 +1,18 @@
 {
   "list_id": "2V2HL7TFY8QE8",
+  "cache_schema": 3,
   "title": "The Hillary Style Holiday",
   "asins": [
-    "B017PCGAXQ",
     "B07FJMB85K",
-    "B07PBXXNCY",
     "B07YHNXMS8",
+    "B084KP3NG6",
     "B08PN3XD6D",
     "B09N8X4Q9F",
     "B0B7WYVLY1",
-    "B0CFYMNJW4",
     "B0CMNMHYJ8",
     "B0CN2KHFMY",
-    "B0CQRFSX1F",
-    "B0D1XLXSSY",
     "B0D9HV7BVN",
     "B0D9J7LDV7",
-    "B0D9ST99T5",
     "B0DB5L9VZ2",
     "B0DGB17XTF",
     "B0DGB8M65X",
@@ -51,11 +47,9 @@
     "B0DQB91Q2X",
     "B0DSCLR1T6",
     "B0DT2GGYDD",
-    "B0F7G273NN",
-    "B0FGX63T7D",
+    "B0DVBL912R",
     "B0FK18JZQM",
     "B0FL5HVQQX",
-    "B0FMS6LS1G",
     "B0FPBR63KF",
     "B0FQFYSH7T",
     "B0FQRJ641G",
@@ -90,10 +84,9 @@
     "B0FWS6N57Q",
     "B0FWSPJG75",
     "B0FWTBLSJ7",
-    "B0FWTBX4J5",
-    "B0G8F7DJPP"
+    "B0FWTBX4J5"
   ],
   "displayed_count": 115,
-  "scraped_at": "2026-08-05T22:58:19-07:00",
-  "product_hash": "528f2fea5cfd7982df70bf77c0739b10b7ed4c5770eee12bdfefc412dad43912"
+  "scraped_at": "2026-08-08T21:14:09-07:00",
+  "product_hash": "031c669e5867466bd9abfbbdbe55a02fa6434858254a042bfa3c29a898d1ffd0"
 }

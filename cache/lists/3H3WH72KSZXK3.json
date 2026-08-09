@@ -1,12 +1,12 @@
 {
   "list_id": "3H3WH72KSZXK3",
+  "cache_schema": 3,
   "title": "New Year's Must-Haves",
   "asins": [
     "B00X5T5512",
-    "B017PCGAXQ",
     "B01KJBVL3E",
-    "B07PBXXNCY",
     "B07W8MW37C",
+    "B084KP3NG6",
     "B085KYTNN4",
     "B08LYFNQNH",
     "B08M3CQXR3",
@@ -20,24 +20,17 @@
     "B0C2Q577PL",
     "B0C2Q7QPSN",
     "B0C3D1SPN9",
-    "B0CFYMNJW4",
     "B0CGLMF8PV",
     "B0CMWQC8BH",
-    "B0CQRFSX1F",
     "B0CVBMFP66",
     "B0CWPSLLJ1",
-    "B0D1XLXSSY",
     "B0D3HV3HBH",
     "B0D49JWVZS",
     "B0D9H8HYM9",
-    "B0D9ST99T5",
     "B0DHZZQK6N",
-    "B0F7G273NN",
-    "B0FGX63T7D",
-    "B0FMS6LS1G",
-    "B0G8F7DJPP"
+    "B0DVBL912R"
   ],
   "displayed_count": 24,
-  "scraped_at": "2026-08-05T22:49:45-07:00",
-  "product_hash": "ab4777ff86996dfbb590506e8d51f173711346ba4f7935b36545728c44cf4231"
+  "scraped_at": "2026-08-08T21:04:42-07:00",
+  "product_hash": "27e4d9e45d5fd5963983631bc826caf962141963e9e6d257b207bd64523c5aec"
 }
