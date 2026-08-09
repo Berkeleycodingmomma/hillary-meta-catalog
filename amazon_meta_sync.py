@@ -103,6 +103,13 @@ LIST_CACHE_SCHEMA = 3  # v3 = safe whole-document Idea List product-card extract
 SUSPICIOUS_MEMBERSHIP_RATIO = 0.60
 SUSPICIOUS_MEMBERSHIP_MIN_LISTS = 25
 
+# Confirmed Amazon recommendation/UI contamination.
+# These ASINs were falsely extracted as members of a very large number of Idea Lists.
+FALSE_MEMBERSHIP_ASINS = {
+    "B0DVBL912R",
+    "B084KP3NG6",
+}
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
@@ -520,6 +527,7 @@ def extract_list_asins(page) -> set[str]:
         asin = _asin_from_href(text)
         if asin:
             found.add(asin)
+    found.difference_update(FALSE_MEMBERSHIP_ASINS)
     return found
 
 def extract_list_links_from_html(html: str, storefront_url: str) -> dict[str, str]:
